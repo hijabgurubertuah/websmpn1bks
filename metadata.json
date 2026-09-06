@@ -1,0 +1,6 @@
+{
+  "name": "Portal Sekolah & Admin CMS",
+  "description": "Website profil sekolah profesional dengan sistem manajemen konten (CMS) admin terintegrasi untuk berita, navigasi, dan tata letak.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
