@@ -1,6 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { NewsArticle } from '../../types';
-import { Calendar, User, ChevronRight, BookmarkCheck, Newspaper, Search, Eye } from 'lucide-react';
+import {
+  Calendar,
+  User,
+  ChevronRight,
+  BookmarkCheck,
+  Newspaper,
+  Search,
+  Eye,
+  Image as ImageIcon,
+  Code2,
+  ExternalLink,
+} from 'lucide-react';
 import { NewsDetailModal } from './NewsDetailModal';
 
 interface NewsSectionProps {
@@ -125,6 +136,22 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ articles }) => {
                       <span className="bg-amber-500/95 backdrop-blur-md text-slate-950 font-bold text-[11px] px-2 py-1 rounded-md flex items-center gap-1 shadow-xs">
                         <BookmarkCheck className="w-3 h-3 text-slate-950" />
                         Unggulan
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Badges for gallery and embed */}
+                  <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                    {article.galleryImages && article.galleryImages.length > 0 && (
+                      <span className="bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <ImageIcon className="w-3 h-3" />
+                        {article.galleryImages.length} Foto
+                      </span>
+                    )}
+                    {article.embedUrl && (
+                      <span className="bg-purple-900/80 backdrop-blur-md text-purple-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Code2 className="w-3 h-3" />
+                        Interaktif
                       </span>
                     )}
                   </div>

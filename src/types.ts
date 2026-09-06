@@ -143,4 +143,11 @@ export interface NewsArticle {
   isPinned: boolean;
   views: number;
   status: 'published' | 'draft';
+  galleryImages?: string[];
+  actionLink?: {
+    label: string;
+    url: string;
+  };
+  embedUrl?: string;
+  embedTitle?: string;
 }

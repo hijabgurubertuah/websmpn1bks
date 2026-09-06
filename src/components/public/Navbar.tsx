@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SchoolConfig, NavMenu } from '../../types';
-import { Menu, X, ChevronDown, GraduationCap, ShieldCheck, Settings, Search } from 'lucide-react';
+import { Menu, X, ChevronDown, School, ShieldCheck, Settings, Search } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   config: SchoolConfig;
@@ -80,12 +81,12 @@ export const Navbar: React.FC<NavbarProps> = ({ config, onOpenAdmin, onSearchCli
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    // Fallback to graduation cap icon if image fails
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
-              ) : null}
-              <GraduationCap className="w-7 h-7 text-blue-700 absolute" />
+              ) : (
+                <School className="w-7 h-7 text-blue-700" />
+              )}
             </div>
 
             <div className="flex flex-col">
@@ -177,6 +178,9 @@ export const Navbar: React.FC<NavbarProps> = ({ config, onOpenAdmin, onSearchCli
 
           {/* Right Action Buttons */}
           <div className="hidden lg:flex items-center gap-3">
+            {/* PWA In-App Install Button */}
+            <PWAInstallButton />
+
             <a
               href="#berita"
               onClick={(e) => {
@@ -201,25 +205,33 @@ export const Navbar: React.FC<NavbarProps> = ({ config, onOpenAdmin, onSearchCli
               <span>Info PPDB 2026</span>
             </a>
 
+            {/* The single, unified admin panel button with gear icon */}
             <button
+              id="btn-admin-gear"
               onClick={onOpenAdmin}
-              className="inline-flex items-center gap-1.5 border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition-colors cursor-pointer"
-              title="Kelola Konten Sekolah (Admin CMS)"
+              className="p-2.5 border border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-white text-slate-600 hover:text-blue-600 rounded-xl transition-all cursor-pointer shadow-xs group"
+              title="Panel Pengelola Admin CMS (Dilindungi Password)"
+              aria-label="Panel Admin"
             >
-              <Settings className="w-4 h-4 text-blue-600" />
-              <span>Admin CMS</span>
+              <Settings className="w-5 h-5 text-slate-600 group-hover:text-blue-600 group-hover:rotate-90 transition-transform duration-300" />
             </button>
           </div>
 
-          {/* Mobile Hamburger Button */}
+          {/* Mobile Right Action Area */}
           <div className="flex lg:hidden items-center gap-2">
+            <PWAInstallButton />
+
+            {/* The single, unified admin panel button with gear icon for mobile */}
             <button
+              id="btn-admin-gear-mobile"
               onClick={onOpenAdmin}
-              className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg"
+              className="p-2 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               title="Panel Admin"
+              aria-label="Panel Admin"
             >
-              <Settings className="w-5 h-5 text-blue-600" />
+              <Settings className="w-5 h-5 text-slate-700 hover:text-blue-600" />
             </button>
+
             <button
               id="btn-mobile-menu-toggle"
               type="button"
@@ -302,17 +314,6 @@ export const Navbar: React.FC<NavbarProps> = ({ config, onOpenAdmin, onSearchCli
               <ShieldCheck className="w-4 h-4" />
               <span>Info PPDB 2026/2027</span>
             </a>
-
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenAdmin();
-              }}
-              className="flex items-center justify-center gap-2 w-full bg-slate-100 text-slate-800 font-semibold py-2.5 rounded-lg text-sm border border-slate-200"
-            >
-              <Settings className="w-4 h-4 text-blue-600" />
-              <span>Buka Admin CMS</span>
-            </button>
           </div>
         </div>
       )}

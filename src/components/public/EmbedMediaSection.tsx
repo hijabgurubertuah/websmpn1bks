@@ -1,6 +1,7 @@
 import React from 'react';
 import { EmbedsConfig } from '../../types';
 import { Video, MapPin, ExternalLink, Navigation } from 'lucide-react';
+import { convertToGoogleMapsEmbedUrl } from '../../lib/embedHelper';
 
 interface EmbedMediaSectionProps {
   embeds: EmbedsConfig;
@@ -16,6 +17,10 @@ export const EmbedMediaSection: React.FC<EmbedMediaSectionProps> = ({
   showMap,
 }) => {
   if (!showVideo && !showMap) return null;
+
+  // Safe Google Maps URL parsing
+  const mapResult = convertToGoogleMapsEmbedUrl(embeds.mapIframeUrl, schoolAddress);
+  const effectiveMapUrl = mapResult.embedUrl;
 
   // Convert standard YouTube watch URLs to embed URLs if needed
   const getCleanEmbedUrl = (url: string) => {
@@ -69,7 +74,7 @@ export const EmbedMediaSection: React.FC<EmbedMediaSectionProps> = ({
         )}
 
         {/* Google Maps Embed Section */}
-        {showMap && embeds.mapIframeUrl && (
+        {showMap && effectiveMapUrl && (
           <div id="lokasi" className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
@@ -87,7 +92,7 @@ export const EmbedMediaSection: React.FC<EmbedMediaSectionProps> = ({
 
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                  schoolAddress
+                  mapResult.detectedLocation || schoolAddress
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -101,7 +106,7 @@ export const EmbedMediaSection: React.FC<EmbedMediaSectionProps> = ({
 
             <div className="w-full h-80 sm:h-96 rounded-2xl overflow-hidden shadow-md border border-slate-200 bg-slate-100">
               <iframe
-                src={embeds.mapIframeUrl}
+                src={effectiveMapUrl}
                 title={embeds.mapTitle || 'Peta Lokasi'}
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"

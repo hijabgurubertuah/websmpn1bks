@@ -1,7 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { SchoolConfig, NewsArticle } from '../../types';
 import { checkFirebaseConnection, resetAllDataToDefault } from '../../lib/firebase';
-import { Database, Cloud, Download, Upload, RefreshCw, CheckCircle2, AlertTriangle, ShieldCheck, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { clearOfflineStorage } from '../../lib/offlineStorage';
+import {
+  Database,
+  Cloud,
+  Download,
+  Upload,
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
+  ShieldCheck,
+  KeyRound,
+  Eye,
+  EyeOff,
+  HardDrive,
+  Zap,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 
 interface AdminSyncTabProps {
   config: SchoolConfig;
@@ -24,9 +41,15 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
   }>({ connected: true, message: 'Memeriksa status database...' });
   const [loadingCheck, setLoadingCheck] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showClearCacheModal, setShowClearCacheModal] = useState(false);
   const [newPassword, setNewPassword] = useState(config.adminPassword || 'smpn1bks');
   const [showPwd, setShowPwd] = useState(false);
   const [savedPwdNotice, setSavedPwdNotice] = useState(false);
+  const [toastNotice, setToastNotice] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   const runConnectionCheck = async () => {
     setLoadingCheck(true);
@@ -54,6 +77,11 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+    setToastNotice({
+      type: 'success',
+      message: 'File cadangan .JSON berhasil diunduh ke komputer Anda.',
+    });
+    setTimeout(() => setToastNotice(null), 4000);
   };
 
   const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,33 +93,84 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
           const parsed = JSON.parse(event.target?.result as string);
           if (parsed.schoolConfig && Array.isArray(parsed.newsArticles)) {
             onDataRestored(parsed.schoolConfig, parsed.newsArticles);
-            alert('Data backup berhasil dipulihkan!');
+            setToastNotice({
+              type: 'success',
+              message: 'Data cadangan berhasil dipulihkan ke website!',
+            });
           } else {
-            alert('Format file cadangan tidak valid.');
+            setToastNotice({
+              type: 'error',
+              message: 'Format file cadangan tidak valid atau tidak lengkap.',
+            });
           }
         } catch (err) {
-          alert('Gagal membaca file JSON: ' + String(err));
+          setToastNotice({
+            type: 'error',
+            message: 'Gagal membaca file JSON: ' + String(err),
+          });
         }
+        setTimeout(() => setToastNotice(null), 4000);
       };
     }
   };
 
-  const handleReset = async () => {
-    if (
-      confirm(
-        'Apakah Anda yakin ingin mengatur ulang semua data website kembali ke setelan default awal? Perubahan kustom yang belum diekspor akan hilang.'
-      )
-    ) {
-      setResetting(true);
+  const handleConfirmReset = async () => {
+    setResetting(true);
+    try {
       const { config: defConfig, articles: defArticles } = await resetAllDataToDefault();
       onDataRestored(defConfig, defArticles);
+      setToastNotice({
+        type: 'success',
+        message: 'Semua data berhasil di-reset ke setelan awal standar sekolah!',
+      });
+      setTimeout(() => setToastNotice(null), 4000);
+    } catch (err) {
+      setToastNotice({
+        type: 'error',
+        message: 'Gagal mereset data: ' + String(err),
+      });
+    } finally {
       setResetting(false);
-      alert('Semua data berhasil di-reset ke pengaturan standar sekolah!');
+      setShowResetModal(false);
     }
+  };
+
+  const handleConfirmClearCache = async () => {
+    await clearOfflineStorage();
+    localStorage.removeItem('sman1_nusantara_config_v2');
+    localStorage.removeItem('sman1_nusantara_news_v2');
+    window.location.reload();
   };
 
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
+      
+      {/* Toast Notice */}
+      {toastNotice && (
+        <div
+          className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-xs sm:text-sm font-semibold transition-all ${
+            toastNotice.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {toastNotice.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+            )}
+            <span>{toastNotice.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setToastNotice(null)}
+            className="p-1 hover:bg-black/5 rounded-md cursor-pointer"
+          >
+            <EyeOff className="w-4 h-4 opacity-0" />
+          </button>
+        </div>
+      )}
       
       {/* Firebase Status */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
@@ -154,6 +233,73 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
           <p>
             Sistem ini menggunakan arsitektur hybrid cerdas. Setiap kali Anda mengubah isi web atau mengunggah berita, data langsung tersimpan di penyimpanan browser lokal dan secara paralel disinkronkan ke dokumen Firestore di Firebase.
           </p>
+        </div>
+      </div>
+
+      {/* Offline Storage & Zero-Data Mode Card */}
+      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-amber-500" />
+              <span>Penyimpanan Offline &amp; Cache Gambar Lokal</span>
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Saat web diakses ulang, seluruh data dan gambar terunggah disajikan seketika dari browser tanpa menarik data baru yang boros kuota.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Offline Ready</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <HardDrive className="w-4 h-4 text-blue-600" />
+              <span>1. Cache Browser (IndexedDB)</span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Teks halaman, postingan artikel, logo, dan foto disimpan langsung di database IndexedDB browser. Membuka ulang situs memerlukan <strong>0 KB transfer data</strong>!
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <Cloud className="w-4 h-4 text-emerald-600" />
+              <span>2. Unggah Gambar Firebase</span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Tombol unggah di panel admin otomatis mengompres foto beresolusi tinggi menjadi format ringan (WebP/JPEG hemat 90-98%) yang disimpan ke dokumen Firebase &amp; disinkronkan ke semua pengunjung.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <Sparkles className="w-4 h-4 text-purple-600" />
+              <span>3. Integrasi Google Drive</span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Jika ingin menggunakan gambar dari Google Drive (misal dokumentasi foto berita), Anda cukup menempel tautan berbagi Google Drive. Sistem otomatis mengubahnya menjadi tautan gambar langsung.
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs border-t border-slate-100">
+          <span className="text-slate-500">
+            Ingin mengosongkan cache browser dan memaksa unduh ulang dari cloud?
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowClearCacheModal(true)}
+            className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold transition-colors cursor-pointer"
+          >
+            Bersihkan Cache Lokal &amp; Muat Ulang
+          </button>
         </div>
       </div>
 
@@ -288,7 +434,7 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
           <button
             type="button"
             disabled={resetting}
-            onClick={handleReset}
+            onClick={() => setShowResetModal(true)}
             className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-bold transition-colors cursor-pointer shrink-0"
           >
             {resetting ? 'Mereset...' : 'Reset ke Data Awal'}
@@ -296,6 +442,91 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
         </div>
 
       </div>
+
+      {/* Modal Konfirmasi Reset Data Standar */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 bg-red-100 text-red-600 rounded-xl shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Reset Semua Data Website?</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Apakah Anda yakin ingin mengatur ulang semua data website kembali ke setelan awal? Semua perubahan kustom yang belum Anda ekspor ke file .JSON akan digantikan data standar.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                disabled={resetting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReset}
+                disabled={resetting}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                {resetting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Mereset Data...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Ya, Reset ke Data Awal</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Bersihkan Cache Browser */}
+      {showClearCacheModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 bg-blue-100 text-blue-600 rounded-xl shrink-0">
+                <RefreshCw className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Bersihkan Cache &amp; Muat Ulang?</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Cache memori lokal browser Anda (IndexedDB &amp; LocalStorage) akan dikosongkan, lalu halaman akan dimuat ulang untuk mengambil versi terbaru langsung dari cloud Firebase.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowClearCacheModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmClearCache}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Bersihkan &amp; Muat Ulang</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

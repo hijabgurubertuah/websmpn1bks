@@ -53,7 +53,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ config }) => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-900/60 border border-blue-500/40 text-blue-200 text-xs sm:text-sm font-semibold tracking-wide backdrop-blur-sm shadow-inner">
             <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>NPSN: {identity.npsn} • {identity.akreditasi}</span>
+            <span>NPSN: {identity.npsn} • Sekolah Standar Nasional</span>
           </div>
 
           {/* Main Title */}

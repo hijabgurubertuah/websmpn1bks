@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" />
+      <stop offset="50%" stop-color="#1d4ed8" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+    <linearGradient id="whiteGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#e2e8f0" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="108" fill="url(#bgGrad)" />
+
+  <!-- Inner border line -->
+  <rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-opacity="0.4" />
+
+  <!-- Main School Shield Crest -->
+  <g filter="url(#shadow)">
+    <!-- Outer Shield Border -->
+    <path d="M256 64 C350 64 416 96 416 96 C416 260 350 376 256 448 C162 376 96 260 96 96 C96 96 162 64 256 64 Z"
+          fill="#172554" stroke="url(#goldGrad)" stroke-width="8" stroke-linejoin="round" />
+    
+    <!-- Shield Inner Fill Accent -->
+    <path d="M256 80 C336 80 398 108 398 108 C398 250 338 356 256 424 C174 356 114 250 114 108 C114 108 176 80 256 80 Z"
+          fill="#1e40af" opacity="0.6" />
+
+    <!-- Central Torch of Knowledge / Star of Excellence -->
+    <!-- Star at top of shield -->
+    <polygon points="256,120 266,144 292,146 272,163 278,188 256,174 234,188 240,163 220,146 246,144" fill="url(#goldGrad)" />
+
+    <!-- Open Book of Wisdom -->
+    <g transform="translate(0, 10)">
+      <!-- Left Page -->
+      <path d="M256 260 C210 240 160 242 140 248 C135 250 132 254 132 260 L132 344 C132 350 137 355 143 353 C165 346 212 346 256 366 Z"
+            fill="url(#whiteGrad)" stroke="#0f172a" stroke-width="2" />
+      <!-- Right Page -->
+      <path d="M256 260 C302 240 352 242 372 248 C377 250 380 254 380 260 L380 344 C380 350 375 355 369 353 C347 346 300 346 256 366 Z"
+            fill="url(#whiteGrad)" stroke="#0f172a" stroke-width="2" />
+      <!-- Book Spine -->
+      <line x1="256" y1="256" x2="256" y2="368" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+
+      <!-- Page lines left -->
+      <line x1="156" y1="274" x2="236" y2="280" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+      <line x1="156" y1="294" x2="236" y2="300" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+      <line x1="156" y1="314" x2="220" y2="320" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+
+      <!-- Page lines right -->
+      <line x1="276" y1="280" x2="356" y2="274" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+      <line x1="276" y1="300" x2="356" y2="294" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+      <line x1="292" y1="320" x2="356" y2="314" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" />
+    </g>
+
+    <!-- Ribbon / Banner of Excellence -->
+    <path d="M160 390 Q256 420 352 390 L344 416 Q256 446 168 416 Z" fill="url(#goldGrad)" />
+    <!-- 3 Mini stars on banner -->
+    <circle cx="230" cy="410" r="3" fill="#1e3a8a" />
+    <circle cx="256" cy="414" r="4" fill="#1e3a8a" />
+    <circle cx="282" cy="410" r="3" fill="#1e3a8a" />
+  </g>
+</svg>

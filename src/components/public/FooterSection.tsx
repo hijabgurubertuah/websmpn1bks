@@ -1,7 +1,7 @@
 import React from 'react';
 import { SchoolConfig } from '../../types';
 import {
-  GraduationCap,
+  School,
   MapPin,
   Phone,
   Mail,
@@ -11,16 +11,14 @@ import {
   Facebook,
   Twitter,
   ArrowUp,
-  Settings,
   Shield,
 } from 'lucide-react';
 
 interface FooterSectionProps {
   config: SchoolConfig;
-  onOpenAdmin: () => void;
 }
 
-export const FooterSection: React.FC<FooterSectionProps> = ({ config, onOpenAdmin }) => {
+export const FooterSection: React.FC<FooterSectionProps> = ({ config }) => {
   const { identity, footer, navMenus } = config;
 
   const scrollToTop = () => {
@@ -44,7 +42,7 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ config, onOpenAdmi
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <GraduationCap className="w-7 h-7 text-blue-400" />
+                  <School className="w-7 h-7 text-blue-400" />
                 )}
               </div>
               <div>
@@ -131,16 +129,6 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ config, onOpenAdmi
                     </a>
                   </li>
                 ))}
-              <li>
-                <button
-                  type="button"
-                  onClick={onOpenAdmin}
-                  className="text-slate-400 hover:text-amber-400 transition-colors flex items-center gap-1.5"
-                >
-                  <Settings className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Kelola Web (Panel Admin)</span>
-                </button>
-              </li>
             </ul>
           </div>
 
@@ -186,17 +174,8 @@ export const FooterSection: React.FC<FooterSectionProps> = ({ config, onOpenAdmi
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={onOpenAdmin}
-              className="hover:text-slate-300 transition-colors font-medium flex items-center gap-1"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Admin Login</span>
-            </button>
-            <span>•</span>
-            <button
-              type="button"
               onClick={scrollToTop}
-              className="inline-flex items-center gap-1.5 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
             >
               <span>Ke Atas</span>
               <ArrowUp className="w-3.5 h-3.5" />

@@ -22,9 +22,11 @@ import { AgendaSection } from './components/public/AgendaSection';
 import { FacilitiesAndEkskul } from './components/public/FacilitiesAndEkskul';
 import { EmbedMediaSection } from './components/public/EmbedMediaSection';
 import { FooterSection } from './components/public/FooterSection';
+import { AccreditationRibbon } from './components/public/AccreditationRibbon';
+import { OfflineIndicator } from './components/public/OfflineIndicator';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AdminLoginModal } from './components/admin/AdminLoginModal';
-import { Settings, ShieldCheck, Sparkles } from 'lucide-react';
+import { ShieldCheck, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [config, setConfig] = useState<SchoolConfig>(DEFAULT_SCHOOL_CONFIG);
@@ -104,9 +106,9 @@ export default function App() {
 
   // Handle article delete from Admin
   const handleDeleteArticle = async (articleId: string) => {
+    // Immediate state update
+    setArticles((prev) => prev.filter((a) => a.id !== articleId));
     await deleteNewsArticle(articleId);
-    const updated = await loadNewsArticles();
-    setArticles(updated);
   };
 
   // Manual save all
@@ -170,13 +172,16 @@ export default function App() {
       />
 
       {/* Top Bar with Announcement Ticker & Quick Contacts */}
-      <TopBar config={config} onOpenAdmin={handleOpenAdmin} />
+      <TopBar config={config} />
 
-      {/* Main Navigation Bar with Dynamic Dropdown Menus */}
+      {/* Main Navigation Bar with Dynamic Dropdown Menus and Single Gear Admin Button */}
       <Navbar config={config} onOpenAdmin={handleOpenAdmin} />
 
       {/* Hero Banner Section */}
       {layoutSections.showHero && <HeroSection config={config} />}
+
+      {/* Akreditasi A Unggul Bar (Placed Directly Below Header) */}
+      <AccreditationRibbon config={config} />
 
       {/* Sambutan Kepala Sekolah */}
       {layoutSections.showPrincipalSpeech && (
@@ -213,19 +218,10 @@ export default function App() {
       )}
 
       {/* Footer Section */}
-      <FooterSection config={config} onOpenAdmin={handleOpenAdmin} />
+      <FooterSection config={config} />
 
-      {/* Floating Admin Switcher Button for convenient editing */}
-      <div className="fixed bottom-6 left-6 z-40">
-        <button
-          onClick={handleOpenAdmin}
-          className="group flex items-center gap-2 bg-slate-900 hover:bg-blue-600 text-white font-bold px-4 py-2.5 rounded-full shadow-2xl border border-slate-700 hover:border-blue-400 transition-all cursor-pointer transform hover:scale-105"
-          title="Buka Panel Admin CMS Pengelola Web (Dilindungi Password)"
-        >
-          <Settings className="w-4 h-4 text-blue-400 group-hover:text-white transition-colors animate-spin-slow" />
-          <span className="text-xs">Kelola Web (Admin)</span>
-        </button>
-      </div>
+      {/* Offline Status Notification Indicator for PWA */}
+      <OfflineIndicator />
 
     </div>
   );

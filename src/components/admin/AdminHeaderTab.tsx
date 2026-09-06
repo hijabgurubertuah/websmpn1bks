@@ -1,6 +1,7 @@
 import React from 'react';
 import { SchoolConfig } from '../../types';
 import { Image, Sparkles, Sliders, Eye } from 'lucide-react';
+import { ImageUploadButton } from './ImageUploadButton';
 
 interface AdminHeaderTabProps {
   config: SchoolConfig;
@@ -105,59 +106,25 @@ export const AdminHeaderTab: React.FC<AdminHeaderTabProps> = ({ config, onChange
             />
           </div>
 
-          {/* Logo URL with Live Preview */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              URL Logo Sekolah
-            </label>
-            <div className="flex gap-3 items-center">
-              <input
-                type="text"
-                value={identity.logoUrl}
-                onChange={(e) => updateIdentity('logoUrl', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                placeholder="https://..."
-              />
-              <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-300 shrink-0 bg-slate-100 flex items-center justify-center">
-                {identity.logoUrl ? (
-                  <img
-                    src={identity.logoUrl}
-                    alt="Preview Logo"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Image className="w-5 h-5 text-slate-400" />
-                )}
-              </div>
-            </div>
-          </div>
+          {/* Logo Upload with Compression & Live Preview */}
+          <ImageUploadButton
+            label="Logo Sekolah (Disimpan di Firebase)"
+            value={identity.logoUrl}
+            onChange={(url) => updateIdentity('logoUrl', url)}
+            preset="logo"
+            aspectRatio="square"
+            placeholder="https://..."
+          />
 
-          {/* Favicon URL */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              URL Favicon Browser
-            </label>
-            <div className="flex gap-3 items-center">
-              <input
-                type="text"
-                value={identity.faviconUrl}
-                onChange={(e) => updateIdentity('faviconUrl', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                placeholder="https://..."
-              />
-              <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-300 shrink-0 bg-slate-100 flex items-center justify-center">
-                {identity.faviconUrl ? (
-                  <img
-                    src={identity.faviconUrl}
-                    alt="Preview Favicon"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Image className="w-5 h-5 text-slate-400" />
-                )}
-              </div>
-            </div>
-          </div>
+          {/* Favicon Upload with Compression & Live Preview */}
+          <ImageUploadButton
+            label="Favicon Browser (Tab Icon)"
+            value={identity.faviconUrl}
+            onChange={(url) => updateIdentity('faviconUrl', url)}
+            preset="favicon"
+            aspectRatio="square"
+            placeholder="https://..."
+          />
         </div>
 
         {/* Running Ticker Setting */}
@@ -229,31 +196,15 @@ export const AdminHeaderTab: React.FC<AdminHeaderTabProps> = ({ config, onChange
             />
           </div>
 
-          {/* Header Image with Live Preview */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              URL Gambar Header Background
-            </label>
-            <input
-              type="text"
-              value={header.heroImageUrl}
-              onChange={(e) => updateHeader('heroImageUrl', e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-              placeholder="https://images.unsplash.com/..."
-            />
-            {header.heroImageUrl && (
-              <div className="mt-3 relative aspect-21/9 max-h-48 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                <img
-                  src={header.heroImageUrl}
-                  alt="Hero Preview"
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute bottom-2 right-2 bg-slate-900/80 text-white text-xs px-2.5 py-1 rounded font-medium">
-                  Pratinjau Banner
-                </span>
-              </div>
-            )}
-          </div>
+          {/* Header Image with Upload & Compression */}
+          <ImageUploadButton
+            label="Gambar Header Background (Hero Banner)"
+            value={header.heroImageUrl}
+            onChange={(url) => updateHeader('heroImageUrl', url)}
+            preset="banner"
+            aspectRatio="banner"
+            placeholder="https://images.unsplash.com/... atau tautan Google Drive"
+          />
 
           {/* CTA Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { SchoolConfig, PrincipalConfig } from '../../types';
-import { Award, Image } from 'lucide-react';
+import { Award } from 'lucide-react';
+import { ImageUploadButton } from './ImageUploadButton';
 
 interface AdminPrincipalTabProps {
   config: SchoolConfig;
@@ -73,31 +74,16 @@ export const AdminPrincipalTab: React.FC<AdminPrincipalTabProps> = ({ config, on
             />
           </div>
 
-          {/* Photo URL with Preview */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              URL Foto Kepala Sekolah
-            </label>
-            <div className="flex gap-3 items-center">
-              <input
-                type="text"
-                value={principal.imageUrl}
-                onChange={(e) => updatePrincipal('imageUrl', e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                placeholder="https://images.unsplash.com/..."
-              />
-              <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-300 shrink-0 bg-slate-100 flex items-center justify-center">
-                {principal.imageUrl ? (
-                  <img
-                    src={principal.imageUrl}
-                    alt="Kepala Sekolah"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Image className="w-5 h-5 text-slate-400" />
-                )}
-              </div>
-            </div>
+          {/* Photo Upload with Compression & Preview */}
+          <div className="md:col-span-2">
+            <ImageUploadButton
+              label="Foto Resmi Kepala Sekolah (Disimpan di Firebase)"
+              value={principal.imageUrl}
+              onChange={(url) => updatePrincipal('imageUrl', url)}
+              preset="avatar"
+              aspectRatio="square"
+              placeholder="https://images.unsplash.com/... atau tautan Google Drive"
+            />
           </div>
         </div>
 

@@ -1,13 +1,12 @@
 import React from 'react';
 import { SchoolConfig } from '../../types';
-import { Volume2, Phone, Mail, Shield, ExternalLink, Settings } from 'lucide-react';
+import { Volume2, Phone, Mail, Shield } from 'lucide-react';
 
 interface TopBarProps {
   config: SchoolConfig;
-  onOpenAdmin: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ config, onOpenAdmin }) => {
+export const TopBar: React.FC<TopBarProps> = ({ config }) => {
   const { identity, footer } = config;
 
   return (
@@ -29,8 +28,8 @@ export const TopBar: React.FC<TopBarProps> = ({ config, onOpenAdmin }) => {
             </div>
           )}
 
-          {/* Quick contact & Admin trigger */}
-          <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 border-t border-slate-800/80 md:border-t-0 pt-1 md:pt-0">
+          {/* Quick contact & accreditation (hidden on mobile phones to prevent clutter above header) */}
+          <div className="hidden md:flex items-center justify-end gap-3 sm:gap-4 shrink-0">
             <div className="hidden lg:flex items-center gap-4 text-slate-400">
               <span className="inline-flex items-center gap-1.5 hover:text-slate-200 transition-colors">
                 <Phone className="w-3.5 h-3.5 text-blue-400" />
@@ -47,18 +46,7 @@ export const TopBar: React.FC<TopBarProps> = ({ config, onOpenAdmin }) => {
                 <Shield className="w-3 h-3" />
                 {identity.akreditasi}
               </span>
-
-              <button
-                id="btn-admin-access"
-                onClick={onOpenAdmin}
-                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white px-2.5 py-1 rounded transition-colors text-xs font-semibold cursor-pointer border border-slate-700 hover:border-blue-500 shadow-sm"
-                title="Akses Panel Pengelola Admin CMS"
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span>Panel Admin</span>
-              </button>
             </div>
-
           </div>
         </div>
       </div>

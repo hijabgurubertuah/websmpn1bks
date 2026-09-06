@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import {
+  initializeFirestore,
   getFirestore,
   doc,
   getDoc,
@@ -11,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { SchoolConfig, NewsArticle } from '../types';
 import { DEFAULT_SCHOOL_CONFIG, DEFAULT_NEWS_ARTICLES } from './defaultData';
+import { getOfflineItem, setOfflineItem } from './offlineStorage';
 
 const FIREBASE_CONFIG = {
   projectId: 'gen-lang-client-0999699449',
@@ -28,6 +30,16 @@ const LOCAL_STORAGE_NEWS_KEY = 'sman1_nusantara_news_v2';
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 
+// Safe promise timeout helper to prevent hanging if connection is offline/slow
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = 3500): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore connection timeout')), timeoutMs)
+    ),
+  ]);
+}
+
 try {
   if (!getApps().length) {
     app = initializeApp({
@@ -42,29 +54,42 @@ try {
     app = getApp();
   }
 
-  // Pass custom databaseId if configured
-  if (FIREBASE_CONFIG.firestoreDatabaseId) {
-    db = getFirestore(app, FIREBASE_CONFIG.firestoreDatabaseId);
-  } else {
-    db = getFirestore(app);
+  // Use initializeFirestore with experimentalForceLongPolling to prevent WebChannel stream disconnects
+  const firestoreSettings = {
+    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: true,
+    ignoreUndefinedProperties: true,
+  };
+
+  try {
+    if (FIREBASE_CONFIG.firestoreDatabaseId) {
+      db = initializeFirestore(app, firestoreSettings, FIREBASE_CONFIG.firestoreDatabaseId);
+    } else {
+      db = initializeFirestore(app, firestoreSettings);
+    }
+  } catch {
+    // If already initialized, fallback gracefully
+    db = FIREBASE_CONFIG.firestoreDatabaseId
+      ? getFirestore(app, FIREBASE_CONFIG.firestoreDatabaseId)
+      : getFirestore(app);
   }
 } catch (err) {
-  console.warn('Firebase init warning (running in local storage fallback):', err);
+  console.info('Firebase running in local storage offline mode:', err);
 }
 
 export async function checkFirebaseConnection(): Promise<{
   connected: boolean;
   message: string;
 }> {
-  if (!db) {
+  if (!db || typeof navigator !== 'undefined' && !navigator.onLine) {
     return {
       connected: false,
-      message: 'Mode Lokal Aktif (Data tersimpan di penyimpanan browser)',
+      message: 'Mode Offline Aktif (Data tersimpan aman di IndexedDB & browser)',
     };
   }
   try {
     const testDoc = doc(db, 'system_health', 'ping');
-    await setDoc(testDoc, { ping: Date.now() }, { merge: true });
+    await withTimeout(setDoc(testDoc, { ping: Date.now() }, { merge: true }), 3000);
     return {
       connected: true,
       message: 'Terhubung ke Google Cloud Firebase Firestore',
@@ -73,7 +98,7 @@ export async function checkFirebaseConnection(): Promise<{
     const message = err instanceof Error ? err.message : String(err);
     return {
       connected: false,
-      message: `Tersimpan Lokal (Sync Cloud: ${message})`,
+      message: `Mode Offline Aktif (${message})`,
     };
   }
 }
@@ -82,58 +107,86 @@ export async function checkFirebaseConnection(): Promise<{
  * Save school general configuration (header, identity, layout, menus, embeds, etc.)
  */
 export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
-  // Always persist to localStorage for instant loading & resilience
+  // Always persist to IndexedDB and localStorage for instant offline loading & zero data loss
   try {
     localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(config));
+    await setOfflineItem('school_config', config);
   } catch (e) {
-    console.error('Failed to save to localStorage', e);
+    console.error('Failed to save to local cache', e);
   }
 
   // Sync to Firebase Firestore
-  if (db) {
+  if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
       const configDocRef = doc(db, 'school_portal', 'main_config');
-      await setDoc(configDocRef, config, { merge: true });
+      await withTimeout(setDoc(configDocRef, config, { merge: true }), 3500);
       return true;
     } catch (err) {
-      console.warn('Could not sync config to Firestore, saved locally instead:', err);
+      console.info('Config tersimpan secara lokal (sinkronisasi cloud ditunda):', err);
     }
   }
   return true;
 }
 
 /**
- * Load school general configuration
+ * Load school general configuration (Offline-first)
  */
 export async function loadSchoolConfig(): Promise<SchoolConfig> {
-  // Try Firebase first
-  if (db) {
-    try {
-      const configDocRef = doc(db, 'school_portal', 'main_config');
-      const snap = await getDoc(configDocRef);
-      if (snap.exists()) {
-        const cloudData = snap.data() as SchoolConfig;
-        localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(cloudData));
-        return cloudData;
-      } else {
-        // First-time cloud init: seed default school configuration to Firestore
-        await setDoc(configDocRef, DEFAULT_SCHOOL_CONFIG);
-        localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(DEFAULT_SCHOOL_CONFIG));
-        return DEFAULT_SCHOOL_CONFIG;
+  // 1. Check offline IndexedDB cache first for instant load and zero data consumption
+  try {
+    const cached = await getOfflineItem<SchoolConfig>('school_config');
+    if (cached) {
+      // Background revalidate from Firestore if online
+      if (db && typeof navigator !== 'undefined' && navigator.onLine) {
+        const configDocRef = doc(db, 'school_portal', 'main_config');
+        withTimeout(getDoc(configDocRef), 3000)
+          .then((snap) => {
+            if (snap.exists()) {
+              const cloudData = snap.data() as SchoolConfig;
+              setOfflineItem('school_config', cloudData);
+              localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(cloudData));
+            }
+          })
+          .catch(() => {});
       }
-    } catch (err) {
-      console.warn('Firestore fetch failed, falling back to local storage:', err);
+      return cached;
     }
+  } catch {
+    // fallback
   }
 
-  // Fallback to localStorage
+  // 2. Check localStorage fallback
   try {
     const local = localStorage.getItem(LOCAL_STORAGE_CONFIG_KEY);
     if (local) {
-      return JSON.parse(local) as SchoolConfig;
+      const parsed = JSON.parse(local) as SchoolConfig;
+      setOfflineItem('school_config', parsed);
+      return parsed;
     }
   } catch (e) {
     console.error('Error parsing local config', e);
+  }
+
+  // 3. Try Firebase Firestore if local cache is completely empty
+  if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
+    try {
+      const configDocRef = doc(db, 'school_portal', 'main_config');
+      const snap = await withTimeout(getDoc(configDocRef), 3500);
+      if (snap.exists()) {
+        const cloudData = snap.data() as SchoolConfig;
+        localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(cloudData));
+        await setOfflineItem('school_config', cloudData);
+        return cloudData;
+      } else {
+        // First-time cloud init: seed default school configuration to Firestore
+        withTimeout(setDoc(configDocRef, DEFAULT_SCHOOL_CONFIG), 3000).catch(() => {});
+        localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(DEFAULT_SCHOOL_CONFIG));
+        await setOfflineItem('school_config', DEFAULT_SCHOOL_CONFIG);
+        return DEFAULT_SCHOOL_CONFIG;
+      }
+    } catch (err) {
+      console.info('Firestore fetch skipped, falling back to default seed:', err);
+    }
   }
 
   // Default seed
@@ -144,7 +197,7 @@ export async function loadSchoolConfig(): Promise<SchoolConfig> {
  * Save or update a news article
  */
 export async function saveNewsArticle(article: NewsArticle): Promise<boolean> {
-  // Local storage save
+  // Local storage & IndexedDB save
   try {
     const existing = await loadNewsArticles();
     const index = existing.findIndex((a) => a.id === article.id);
@@ -156,18 +209,19 @@ export async function saveNewsArticle(article: NewsArticle): Promise<boolean> {
       updated = [article, ...existing];
     }
     localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(updated));
+    await setOfflineItem('news_articles', updated);
   } catch (e) {
     console.error('Error saving article locally', e);
   }
 
   // Firestore sync
-  if (db) {
+  if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
       const articleDoc = doc(db, 'news_articles', article.id);
-      await setDoc(articleDoc, article, { merge: true });
+      await withTimeout(setDoc(articleDoc, article, { merge: true }), 3500);
       return true;
     } catch (err) {
-      console.warn('Firestore article sync error, saved locally:', err);
+      console.info('Firestore article sync deferred, saved locally:', err);
     }
   }
 
@@ -182,16 +236,17 @@ export async function deleteNewsArticle(articleId: string): Promise<boolean> {
     const existing = await loadNewsArticles();
     const updated = existing.filter((a) => a.id !== articleId);
     localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(updated));
+    await setOfflineItem('news_articles', updated);
   } catch (e) {
     console.error('Error deleting article locally', e);
   }
 
-  if (db) {
+  if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
       const articleDoc = doc(db, 'news_articles', articleId);
-      await deleteDoc(articleDoc);
+      await withTimeout(deleteDoc(articleDoc), 3500);
     } catch (err) {
-      console.warn('Firestore article delete error:', err);
+      console.info('Firestore article delete deferred, applied locally:', err);
     }
   }
 
@@ -199,44 +254,74 @@ export async function deleteNewsArticle(articleId: string): Promise<boolean> {
 }
 
 /**
- * Load all news articles
+ * Load all news articles (Offline-first)
  */
 export async function loadNewsArticles(): Promise<NewsArticle[]> {
-  if (db) {
+  // 1. Check IndexedDB offline cache first
+  try {
+    const cached = await getOfflineItem<NewsArticle[]>('news_articles');
+    if (cached !== null && Array.isArray(cached)) {
+      // Background revalidate from Firestore if online
+      if (db && typeof navigator !== 'undefined' && navigator.onLine) {
+        const colRef = collection(db, 'news_articles');
+        withTimeout(getDocs(colRef), 3000)
+          .then((snap) => {
+            const cloudArticles: NewsArticle[] = [];
+            snap.forEach((d) => {
+              cloudArticles.push(d.data() as NewsArticle);
+            });
+            cloudArticles.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+            setOfflineItem('news_articles', cloudArticles);
+            localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(cloudArticles));
+          })
+          .catch(() => {});
+      }
+      return cached;
+    }
+  } catch {
+    // fallback
+  }
+
+  // 2. Check localStorage fallback
+  try {
+    const local = localStorage.getItem(LOCAL_STORAGE_NEWS_KEY);
+    if (local !== null) {
+      const parsed = JSON.parse(local) as NewsArticle[];
+      if (Array.isArray(parsed)) {
+        setOfflineItem('news_articles', parsed);
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error loading local news', e);
+  }
+
+  // 3. Try Firebase Firestore if local cache is empty
+  if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
       const colRef = collection(db, 'news_articles');
-      const snap = await getDocs(colRef);
+      const snap = await withTimeout(getDocs(colRef), 3500);
       if (!snap.empty) {
         const cloudArticles: NewsArticle[] = [];
         snap.forEach((d) => {
           cloudArticles.push(d.data() as NewsArticle);
         });
-        // Sort pinned first, then by date/id
         cloudArticles.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
         localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(cloudArticles));
+        await setOfflineItem('news_articles', cloudArticles);
         return cloudArticles;
       } else {
         // First-time cloud init: seed default news articles to Firestore
         for (const art of DEFAULT_NEWS_ARTICLES) {
-          await setDoc(doc(db, 'news_articles', art.id), art);
+          withTimeout(setDoc(doc(db, 'news_articles', art.id), art), 2000).catch(() => {});
         }
         localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(DEFAULT_NEWS_ARTICLES));
+        await setOfflineItem('news_articles', DEFAULT_NEWS_ARTICLES);
         return DEFAULT_NEWS_ARTICLES;
       }
     } catch (err) {
-      console.warn('Firestore news load error, using local storage:', err);
+      console.info('Firestore news load skipped, using local storage:', err);
     }
-  }
-
-  // Local storage fallback
-  try {
-    const local = localStorage.getItem(LOCAL_STORAGE_NEWS_KEY);
-    if (local) {
-      const parsed = JSON.parse(local) as NewsArticle[];
-      if (parsed.length > 0) return parsed;
-    }
-  } catch (e) {
-    console.error('Error loading local news', e);
   }
 
   return DEFAULT_NEWS_ARTICLES;
@@ -254,18 +339,20 @@ export async function resetAllDataToDefault(): Promise<{
     localStorage.removeItem(LOCAL_STORAGE_NEWS_KEY);
     localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(DEFAULT_SCHOOL_CONFIG));
     localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(DEFAULT_NEWS_ARTICLES));
+    await setOfflineItem('school_config', DEFAULT_SCHOOL_CONFIG);
+    await setOfflineItem('news_articles', DEFAULT_NEWS_ARTICLES);
   } catch (e) {
     console.error(e);
   }
 
-  if (db) {
+  if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
-      await setDoc(doc(db, 'school_portal', 'main_config'), DEFAULT_SCHOOL_CONFIG);
+      await withTimeout(setDoc(doc(db, 'school_portal', 'main_config'), DEFAULT_SCHOOL_CONFIG), 3000);
       for (const art of DEFAULT_NEWS_ARTICLES) {
-        await setDoc(doc(db, 'news_articles', art.id), art);
+        await withTimeout(setDoc(doc(db, 'news_articles', art.id), art), 2000);
       }
     } catch (err) {
-      console.warn('Reset Firestore failed, applied locally:', err);
+      console.info('Reset Firestore skipped, applied locally:', err);
     }
   }
 
@@ -274,3 +361,4 @@ export async function resetAllDataToDefault(): Promise<{
     articles: DEFAULT_NEWS_ARTICLES,
   };
 }
+
