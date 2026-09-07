@@ -40,28 +40,22 @@ export const EmbedMediaSection: React.FC<EmbedMediaSectionProps> = ({
   const cleanVideoUrl = getCleanEmbedUrl(embeds.youtubeUrl);
 
   return (
-    <section id="media-lokasi" className="py-16 sm:py-20 bg-white border-b border-slate-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+    <section id="media-lokasi" className="py-12 sm:py-16 bg-white border-b border-slate-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
-        {/* YouTube Video Section */}
+        {/* Video Profil Section (Minimalist) */}
         {showVideo && cleanVideoUrl && (
-          <div id="video-profil" className="space-y-8">
-            <div className="text-center max-w-2xl mx-auto space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold uppercase tracking-wider">
-                <Video className="w-3.5 h-3.5 text-red-600" />
-                <span>Video Profil &amp; Tur Kampus</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                {embeds.youtubeTitle || 'Kenali Lingkungan & Suasana SMAN 1 Nusantara'}
+          <div id="video-profil" className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-red-100 text-red-600">
+                <Video className="w-4 h-4" />
+              </span>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+                {embeds.youtubeTitle || 'Video Profil'}
               </h2>
-              {embeds.youtubeSubtitle && (
-                <p className="text-slate-500 text-sm sm:text-base">
-                  {embeds.youtubeSubtitle}
-                </p>
-              )}
             </div>
 
-            <div className="max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-slate-200 aspect-16/9 bg-slate-900">
+            <div className="w-full rounded-2xl overflow-hidden shadow-md border border-slate-200 aspect-16/9 bg-slate-900 max-w-4xl mx-auto">
               <iframe
                 src={cleanVideoUrl}
                 title={embeds.youtubeTitle || 'Video Profil'}
@@ -73,21 +67,22 @@ export const EmbedMediaSection: React.FC<EmbedMediaSectionProps> = ({
           </div>
         )}
 
-        {/* Google Maps Embed Section */}
+        {/* Google Maps Section (Ultra Minimalist) */}
         {showMap && effectiveMapUrl && (
-          <div id="lokasi" className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-2">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>Akses &amp; Lokasi Kampus</span>
+          <div id="lokasi" className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </span>
+                <div className="truncate">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
+                    {embeds.mapTitle || 'Lokasi Sekolah'}
+                  </h2>
+                  <p className="text-xs text-slate-500 truncate">
+                    {schoolAddress}
+                  </p>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  {embeds.mapTitle || 'Denah & Peta Lokasi Sekolah'}
-                </h2>
-                <p className="text-slate-500 text-sm sm:text-base mt-1">
-                  {schoolAddress}
-                </p>
               </div>
 
               <a
@@ -96,15 +91,15 @@ export const EmbedMediaSection: React.FC<EmbedMediaSectionProps> = ({
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors cursor-pointer self-start sm:self-auto shrink-0"
+                className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold px-3 py-2 rounded-xl transition-colors cursor-pointer shrink-0"
               >
-                <Navigation className="w-4 h-4 text-blue-600" />
-                <span>Petunjuk Arah (Navigasi)</span>
-                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                <span className="hidden sm:inline">Buka Peta</span>
+                <ExternalLink className="w-3 h-3 text-slate-400" />
               </a>
             </div>
 
-            <div className="w-full h-80 sm:h-96 rounded-2xl overflow-hidden shadow-md border border-slate-200 bg-slate-100">
+            <div className="w-full h-72 sm:h-80 md:h-96 rounded-2xl overflow-hidden shadow-sm border border-slate-200 bg-slate-100">
               <iframe
                 src={effectiveMapUrl}
                 title={embeds.mapTitle || 'Peta Lokasi'}
