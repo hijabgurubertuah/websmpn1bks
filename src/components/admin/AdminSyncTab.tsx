@@ -13,6 +13,7 @@ import {
   initDriveAuth,
   getDriveAccessToken,
 } from '../../lib/googleDrive';
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
 import { User } from 'firebase/auth';
 import {
   Cloud,
@@ -57,6 +58,9 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
   const [showResetModal, setShowResetModal] = useState(false);
   const [showSetDefaultModal, setShowSetDefaultModal] = useState(false);
   const [showClearCacheModal, setShowClearCacheModal] = useState(false);
+
+  // Lock body scroll when any modal in AdminSyncTab is open
+  useBodyScrollLock(showResetModal || showSetDefaultModal || showClearCacheModal);
 
   // Password verification for reset
   const [resetPasswordInput, setResetPasswordInput] = useState('');
@@ -463,8 +467,8 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
 
       {/* Set Default Modal */}
       {showSetDefaultModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overscroll-contain touch-none">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 overscroll-contain animate-in zoom-in-95 duration-150">
             <h4 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
               <BookmarkCheck className="w-5 h-5 text-indigo-600" />
               <span>Simpan Sebagai Default Baru</span>
@@ -532,8 +536,8 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
 
       {/* Reset Modal */}
       {showResetModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overscroll-contain touch-none">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 overscroll-contain animate-in zoom-in-95 duration-150">
             <h4 className="font-bold text-red-600 text-sm sm:text-base flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-600" />
               <span>Reset Semua Data Situs</span>

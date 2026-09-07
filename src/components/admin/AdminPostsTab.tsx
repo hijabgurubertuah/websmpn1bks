@@ -26,6 +26,7 @@ import {
 import { ImageUploadButton } from './ImageUploadButton';
 import { MultiImageUploader } from './MultiImageUploader';
 import { parseEmbedUrl } from '../../lib/embedHelper';
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
 
 interface AdminPostsTabProps {
   articles: NewsArticle[];
@@ -66,6 +67,10 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
   // Delete modal states
   const [articleToDelete, setArticleToDelete] = useState<NewsArticle | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Lock body scroll when delete confirmation modal is open
+  useBodyScrollLock(!!articleToDelete);
+
   const [feedbackToast, setFeedbackToast] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -799,8 +804,8 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
 
       {/* In-UI Delete Confirmation Modal */}
       {articleToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs overscroll-contain touch-none animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 overscroll-contain space-y-4">
             <div className="flex items-start gap-3">
               <div className="p-3 bg-red-100 text-red-600 rounded-xl shrink-0">
                 <AlertTriangle className="w-6 h-6" />

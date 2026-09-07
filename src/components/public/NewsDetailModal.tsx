@@ -21,6 +21,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { parseEmbedUrl } from '../../lib/embedHelper';
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
 
 interface NewsDetailModalProps {
   article: NewsArticle | null;
@@ -28,12 +29,15 @@ interface NewsDetailModalProps {
 }
 
 export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({ article, onClose }) => {
-  if (!article) return null;
+  // Prevent background scrolling while the news modal or lightbox is open
+  useBodyScrollLock(!!article);
 
   const [activeGalleryIndex, setActiveGalleryIndex] = useState<number | null>(null);
   const [isEmbedExpanded, setIsEmbedExpanded] = useState(false);
   const [iframeKey, setIframeKey] = useState(1);
   const [copiedNotice, setCopiedNotice] = useState(false);
+
+  if (!article) return null;
 
   const parsedEmbed = article.embedUrl ? parseEmbedUrl(article.embedUrl) : null;
   const gallery = article.galleryImages || [];
@@ -102,9 +106,9 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({ article, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/75 backdrop-blur-xs overscroll-contain touch-none animate-in fade-in duration-200">
       <div
-        className={`relative w-full bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col transition-all duration-300 ${
+        className={`relative w-full bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col overscroll-contain transition-all duration-300 ${
           isEmbedExpanded ? 'max-w-6xl h-[96vh]' : 'max-w-4xl max-h-[92vh]'
         }`}
       >
@@ -168,7 +172,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({ article, onClo
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-5 sm:p-8 overflow-y-auto space-y-6 flex-1">
+        <div className="p-5 sm:p-8 overflow-y-auto overscroll-contain touch-pan-y space-y-6 flex-1">
           {/* Title */}
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight leading-snug">
             {article.title}

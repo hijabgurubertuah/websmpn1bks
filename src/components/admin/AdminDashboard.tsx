@@ -35,6 +35,7 @@ import { AdminEmbedsTab } from './AdminEmbedsTab';
 import { AdminFooterTab } from './AdminFooterTab';
 import { AdminSyncTab } from './AdminSyncTab';
 import { saveSchoolConfig } from '../../lib/firebase';
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
 
 interface AdminDashboardProps {
   config: SchoolConfig;
@@ -78,6 +79,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('Perubahan Tersimpan!');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Lock body scroll when mobile sidebar drawer is open to prevent background scrolling
+  useBodyScrollLock(isMobileSidebarOpen);
 
   const handleSaveClick = async () => {
     setSavingAll(true);
@@ -228,19 +232,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Mobile Drawer Backdrop */}
       {isMobileSidebarOpen && (
         <div
-          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 transition-opacity md:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 transition-opacity md:hidden overscroll-contain touch-none animate-in fade-in duration-200"
           onClick={() => setIsMobileSidebarOpen(false)}
         />
       )}
 
       {/* Mobile Sliding Sidebar Drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-slate-900 text-white z-50 flex flex-col shadow-2xl border-r border-slate-800 transform transition-transform duration-300 ease-in-out md:hidden ${
+        className={`fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-slate-900 text-white z-50 flex flex-col shadow-2xl border-r border-slate-800 overscroll-contain transform transition-transform duration-300 ease-in-out md:hidden ${
           isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Drawer Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shadow-inner">
               <Sparkles className="w-5 h-5" />
@@ -266,7 +270,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Drawer Tab Navigation List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+        <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y p-3 space-y-1.5">
           <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
             Pilih Tab Pengaturan
           </div>
