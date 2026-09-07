@@ -141,8 +141,16 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
 
     try {
       const result = await compressAndResizeImage(file, getPresetOptions());
+      if (result.compressedSize > 900 * 1024) {
+        setUploadError(`Gagal: Ukuran file (${formatFileSize(result.compressedSize)}) melebihi batas 1MB Firestore. Gunakan Google Drive atau gambar yang lebih kecil.`);
+        return;
+      }
       onChange(result.dataUrl);
-      setSuccessInfo(`Kompresi berhasil (${formatFileSize(result.compressedSize)}, hemat ${result.reductionPercentage}%)`);
+      if (result.compressedSize > 500 * 1024) {
+        setSuccessInfo(`Kompresi berhasil (${formatFileSize(result.compressedSize)}). Peringatan: Ukuran cukup besar untuk 1 dokumen Firestore, disarankan pakai Google Drive.`);
+      } else {
+        setSuccessInfo(`Kompresi berhasil (${formatFileSize(result.compressedSize)}, hemat ${result.reductionPercentage}%) - Aman untuk Cloud!`);
+      }
     } catch (err) {
       setUploadError('Gagal mengompres gambar: ' + String(err));
     } finally {

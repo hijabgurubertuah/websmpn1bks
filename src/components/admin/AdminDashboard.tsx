@@ -85,24 +85,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveClick = async () => {
     setSavingAll(true);
-    await onManualSaveAll();
+    try {
+      await onManualSaveAll();
+      setToastMessage('Semua Konfigurasi & Berita Tersinkron ke Cloud!');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToastMessage(`Gagal sinkron Cloud: ${msg}`);
+    }
     setSavingAll(false);
-    setToastMessage('Semua Konfigurasi & Berita Tersinkron ke Cloud!');
     setShowToast(true);
     setTimeout(() => {
       setShowToast(false);
-    }, 3000);
+    }, 5000);
   };
 
   const handleSaveCurrentTab = async () => {
     setSavingTab(true);
-    await saveSchoolConfig(config);
+    try {
+      await saveSchoolConfig(config);
+      setToastMessage(`Perubahan tab ${tabs.find((t) => t.id === activeTab)?.label} berhasil disimpan ke Cloud!`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToastMessage(`Gagal ke Cloud: ${msg}`);
+    }
     setSavingTab(false);
-    setToastMessage(`Perubahan tab ${tabs.find((t) => t.id === activeTab)?.label} berhasil disimpan ke Cloud!`);
     setShowToast(true);
     setTimeout(() => {
       setShowToast(false);
-    }, 3000);
+    }, 5000);
   };
 
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [

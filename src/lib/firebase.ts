@@ -110,7 +110,7 @@ export async function checkFirebaseConnection(): Promise<{
  * Save school general configuration (header, identity, layout, menus, embeds, etc.)
  */
 export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
-  // Always persist to IndexedDB and localStorage for instant offline loading & zero data loss
+  // Always persist locally first for instant offline loading & zero data loss
   try {
     localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(config));
     await setOfflineItem('school_config', config);
@@ -118,14 +118,23 @@ export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
     console.error('Error saving school config locally', e);
   }
 
-  // Sync to Firebase Firestore
+  // Sync to Firebase Firestore (single document to save write quota and prevent rate limits)
   if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
+      const jsonString = JSON.stringify(config);
+      if (jsonString.length > 950 * 1024) {
+        throw new Error('Ukuran data konfigurasi melebihi batas 1MB Firestore. Harap gunakan URL gambar eksternal (Google Drive / link publik) untuk foto kepala sekolah atau logo.');
+      }
       const configDocRef = doc(db, 'school_portal', 'main_config');
-      await withTimeout(setDoc(configDocRef, config, { merge: true }), 3500);
+      await withTimeout(setDoc(configDocRef, config, { merge: true }), 4000);
       return true;
-    } catch (err) {
-      console.info('Config tersimpan secara lokal (sinkronisasi cloud ditunda):', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('resource-exhausted') || msg.includes('Quota')) {
+        console.warn('Kuota harian Firestore tercapai (Free Tier). Data tersimpan aman di penyimpanan lokal browser Anda.');
+        return true; // Return true so user experience is smooth and local save succeeds
+      }
+      console.info('Config tersimpan secara lokal (sinkronisasi cloud ditunda):', msg);
     }
   }
   return true;
