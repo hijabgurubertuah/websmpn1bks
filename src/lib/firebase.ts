@@ -24,8 +24,11 @@ const FIREBASE_CONFIG = {
   messagingSenderId: '319360539506',
 };
 
-const LOCAL_STORAGE_CONFIG_KEY = 'sman1_nusantara_config_v2';
-const LOCAL_STORAGE_NEWS_KEY = 'sman1_nusantara_news_v2';
+const LOCAL_STORAGE_CONFIG_KEY = 'smpn1_bengkalis_config_v3';
+const LOCAL_STORAGE_NEWS_KEY = 'smpn1_bengkalis_news_v3';
+const CUSTOM_DEFAULT_CONFIG_KEY = 'smpn1_bengkalis_custom_default_config_v1';
+const CUSTOM_DEFAULT_NEWS_KEY = 'smpn1_bengkalis_custom_default_news_v1';
+const CUSTOM_DEFAULT_META_KEY = 'smpn1_bengkalis_custom_default_meta_v1';
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
@@ -112,7 +115,7 @@ export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
     localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(config));
     await setOfflineItem('school_config', config);
   } catch (e) {
-    console.error('Failed to save to local cache', e);
+    console.error('Error saving school config locally', e);
   }
 
   // Sync to Firebase Firestore
@@ -129,10 +132,10 @@ export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
 }
 
 /**
- * Load school general configuration (Offline-first)
+ * Load school general configuration
  */
 export async function loadSchoolConfig(): Promise<SchoolConfig> {
-  // 1. Check offline IndexedDB cache first for instant load and zero data consumption
+  // 1. First check IndexedDB for super-fast offline startup
   try {
     const cached = await getOfflineItem<SchoolConfig>('school_config');
     if (cached) {
@@ -164,7 +167,7 @@ export async function loadSchoolConfig(): Promise<SchoolConfig> {
       return parsed;
     }
   } catch (e) {
-    console.error('Error parsing local config', e);
+    console.error('Error reading local config', e);
   }
 
   // 3. Try Firebase Firestore if local cache is completely empty
@@ -189,24 +192,23 @@ export async function loadSchoolConfig(): Promise<SchoolConfig> {
     }
   }
 
-  // Default seed
   return DEFAULT_SCHOOL_CONFIG;
 }
 
 /**
- * Save or update a news article
+ * Save or update a single news article
  */
 export async function saveNewsArticle(article: NewsArticle): Promise<boolean> {
-  // Local storage & IndexedDB save
+  // Update local cache first
   try {
-    const existing = await loadNewsArticles();
-    const index = existing.findIndex((a) => a.id === article.id);
+    const articles = await loadNewsArticles();
+    const existingIndex = articles.findIndex((a) => a.id === article.id);
     let updated: NewsArticle[];
-    if (index >= 0) {
-      updated = [...existing];
-      updated[index] = article;
+    if (existingIndex >= 0) {
+      updated = [...articles];
+      updated[existingIndex] = article;
     } else {
-      updated = [article, ...existing];
+      updated = [article, ...articles];
     }
     localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(updated));
     await setOfflineItem('news_articles', updated);
@@ -233,10 +235,10 @@ export async function saveNewsArticle(article: NewsArticle): Promise<boolean> {
  */
 export async function deleteNewsArticle(articleId: string): Promise<boolean> {
   try {
-    const existing = await loadNewsArticles();
-    const updated = existing.filter((a) => a.id !== articleId);
-    localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(updated));
-    await setOfflineItem('news_articles', updated);
+    const articles = await loadNewsArticles();
+    const filtered = articles.filter((a) => a.id !== articleId);
+    localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(filtered));
+    await setOfflineItem('news_articles', filtered);
   } catch (e) {
     console.error('Error deleting article locally', e);
   }
@@ -254,10 +256,10 @@ export async function deleteNewsArticle(articleId: string): Promise<boolean> {
 }
 
 /**
- * Load all news articles (Offline-first)
+ * Load all news articles
  */
 export async function loadNewsArticles(): Promise<NewsArticle[]> {
-  // 1. Check IndexedDB offline cache first
+  // 1. First check IndexedDB for offline access
   try {
     const cached = await getOfflineItem<NewsArticle[]>('news_articles');
     if (cached !== null && Array.isArray(cached)) {
@@ -270,9 +272,11 @@ export async function loadNewsArticles(): Promise<NewsArticle[]> {
             snap.forEach((d) => {
               cloudArticles.push(d.data() as NewsArticle);
             });
-            cloudArticles.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
-            setOfflineItem('news_articles', cloudArticles);
-            localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(cloudArticles));
+            if (cloudArticles.length > 0) {
+              cloudArticles.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+              setOfflineItem('news_articles', cloudArticles);
+              localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(cloudArticles));
+            }
           })
           .catch(() => {});
       }
@@ -328,37 +332,242 @@ export async function loadNewsArticles(): Promise<NewsArticle[]> {
 }
 
 /**
- * Reset data back to default initial seed
+ * Get Custom Default metadata (timestamp and existence)
+ */
+export async function getCustomDefaultMeta(): Promise<{
+  hasCustomDefault: boolean;
+  savedAt?: string;
+}> {
+  // Check local meta
+  try {
+    const metaStr = localStorage.getItem(CUSTOM_DEFAULT_META_KEY);
+    if (metaStr) {
+      const parsed = JSON.parse(metaStr);
+      return { hasCustomDefault: true, savedAt: parsed.savedAt };
+    }
+  } catch {
+    // ignore
+  }
+
+  // Check IndexedDB
+  try {
+    const cachedMeta = await getOfflineItem<{ hasCustomDefault: boolean; savedAt?: string }>('custom_default_meta');
+    if (cachedMeta && cachedMeta.hasCustomDefault) {
+      return cachedMeta;
+    }
+  } catch {
+    // ignore
+  }
+
+  // Check Firestore
+  if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
+    try {
+      const docRef = doc(db, 'school_portal', 'custom_defaults');
+      const snap = await withTimeout(getDoc(docRef), 2500);
+      if (snap.exists()) {
+        const data = snap.data();
+        const savedAt = data.savedAt || new Date().toISOString();
+        const meta = { hasCustomDefault: true, savedAt };
+        localStorage.setItem(CUSTOM_DEFAULT_META_KEY, JSON.stringify(meta));
+        await setOfflineItem('custom_default_meta', meta);
+        return meta;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return { hasCustomDefault: false };
+}
+
+/**
+ * "Jadikan Default" - Save current configuration & news as the new active default template.
+ * Any old defaults are replaced. Future resets will revert to this exact snapshot.
+ */
+export async function saveCurrentAsNewDefault(
+  config: SchoolConfig,
+  articles: NewsArticle[]
+): Promise<{ success: boolean; savedAt: string }> {
+  const savedAt = new Date().toLocaleString('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+
+  const meta = { hasCustomDefault: true, savedAt };
+
+  // 1. Save to localStorage
+  try {
+    localStorage.setItem(CUSTOM_DEFAULT_CONFIG_KEY, JSON.stringify(config));
+    localStorage.setItem(CUSTOM_DEFAULT_NEWS_KEY, JSON.stringify(articles));
+    localStorage.setItem(CUSTOM_DEFAULT_META_KEY, JSON.stringify(meta));
+
+    // Also ensure current active storage is in sync
+    localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(config));
+    localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(articles));
+  } catch (e) {
+    console.error('Error saving custom default to localStorage', e);
+  }
+
+  // 2. Save to IndexedDB
+  try {
+    await setOfflineItem('custom_default_config', config);
+    await setOfflineItem('custom_default_articles', articles);
+    await setOfflineItem('custom_default_meta', meta);
+    await setOfflineItem('school_config', config);
+    await setOfflineItem('news_articles', articles);
+  } catch (e) {
+    console.error('Error saving custom default to IndexedDB', e);
+  }
+
+  // 3. Save to Firestore Cloud
+  if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
+    try {
+      // Save custom default master document
+      const defaultDocRef = doc(db, 'school_portal', 'custom_defaults');
+      await withTimeout(
+        setDoc(defaultDocRef, {
+          config,
+          articles,
+          savedAt,
+          updatedAt: Date.now(),
+        }),
+        3500
+      );
+
+      // Overwrite main active config
+      const mainConfigRef = doc(db, 'school_portal', 'main_config');
+      await withTimeout(setDoc(mainConfigRef, config), 3500);
+
+      // Clean obsolete news in Firestore and write current articles
+      const colRef = collection(db, 'news_articles');
+      const currentSnap = await withTimeout(getDocs(colRef), 3000);
+      const newArticleIds = new Set(articles.map((a) => a.id));
+
+      for (const d of currentSnap.docs) {
+        if (!newArticleIds.has(d.id)) {
+          await withTimeout(deleteDoc(doc(db, 'news_articles', d.id)), 2000).catch(() => {});
+        }
+      }
+
+      for (const art of articles) {
+        await withTimeout(setDoc(doc(db, 'news_articles', art.id), art), 2000).catch(() => {});
+      }
+    } catch (err) {
+      console.info('Custom default saved locally (cloud sync deferred):', err);
+    }
+  }
+
+  return { success: true, savedAt };
+}
+
+/**
+ * Reset data back to default template.
+ * If user previously clicked "Jadikan Default", it resets to that last custom default snapshot!
+ * Otherwise, it resets to the baseline SMP Negeri 1 Bengkalis default.
  */
 export async function resetAllDataToDefault(): Promise<{
   config: SchoolConfig;
   articles: NewsArticle[];
+  isCustomDefault: boolean;
+  savedAt?: string;
 }> {
+  let targetConfig: SchoolConfig = DEFAULT_SCHOOL_CONFIG;
+  let targetArticles: NewsArticle[] = DEFAULT_NEWS_ARTICLES;
+  let isCustomDefault = false;
+  let savedAt: string | undefined;
+
+  // 1. Check IndexedDB custom default
   try {
-    localStorage.removeItem(LOCAL_STORAGE_CONFIG_KEY);
-    localStorage.removeItem(LOCAL_STORAGE_NEWS_KEY);
-    localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(DEFAULT_SCHOOL_CONFIG));
-    localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(DEFAULT_NEWS_ARTICLES));
-    await setOfflineItem('school_config', DEFAULT_SCHOOL_CONFIG);
-    await setOfflineItem('news_articles', DEFAULT_NEWS_ARTICLES);
-  } catch (e) {
-    console.error(e);
+    const customConfig = await getOfflineItem<SchoolConfig>('custom_default_config');
+    const customArticles = await getOfflineItem<NewsArticle[]>('custom_default_articles');
+    const customMeta = await getOfflineItem<{ hasCustomDefault: boolean; savedAt?: string }>('custom_default_meta');
+
+    if (customConfig && customArticles && Array.isArray(customArticles)) {
+      targetConfig = customConfig;
+      targetArticles = customArticles;
+      isCustomDefault = true;
+      savedAt = customMeta?.savedAt;
+    }
+  } catch {
+    // ignore
   }
 
+  // 2. Check localStorage custom default if not found in IndexedDB
+  if (!isCustomDefault) {
+    try {
+      const localCustomCfg = localStorage.getItem(CUSTOM_DEFAULT_CONFIG_KEY);
+      const localCustomNews = localStorage.getItem(CUSTOM_DEFAULT_NEWS_KEY);
+      const localMeta = localStorage.getItem(CUSTOM_DEFAULT_META_KEY);
+
+      if (localCustomCfg && localCustomNews) {
+        targetConfig = JSON.parse(localCustomCfg);
+        targetArticles = JSON.parse(localCustomNews);
+        isCustomDefault = true;
+        if (localMeta) {
+          savedAt = JSON.parse(localMeta).savedAt;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3. Check Firestore custom default if still not found
+  if (!isCustomDefault && db && (typeof navigator === 'undefined' || navigator.onLine)) {
+    try {
+      const defaultDocRef = doc(db, 'school_portal', 'custom_defaults');
+      const snap = await withTimeout(getDoc(defaultDocRef), 3000);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.config && Array.isArray(data.articles)) {
+          targetConfig = data.config as SchoolConfig;
+          targetArticles = data.articles as NewsArticle[];
+          isCustomDefault = true;
+          savedAt = data.savedAt;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Apply to active localStorage
+  try {
+    localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(targetConfig));
+    localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(targetArticles));
+    await setOfflineItem('school_config', targetConfig);
+    await setOfflineItem('news_articles', targetArticles);
+  } catch (e) {
+    console.error('Error overwriting local state on reset', e);
+  }
+
+  // Apply to active Firestore
   if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
-      await withTimeout(setDoc(doc(db, 'school_portal', 'main_config'), DEFAULT_SCHOOL_CONFIG), 3000);
-      for (const art of DEFAULT_NEWS_ARTICLES) {
-        await withTimeout(setDoc(doc(db, 'news_articles', art.id), art), 2000);
+      await withTimeout(setDoc(doc(db, 'school_portal', 'main_config'), targetConfig), 3500);
+
+      const colRef = collection(db, 'news_articles');
+      const snap = await withTimeout(getDocs(colRef), 3000);
+      const targetIds = new Set(targetArticles.map((a) => a.id));
+
+      for (const d of snap.docs) {
+        if (!targetIds.has(d.id)) {
+          await withTimeout(deleteDoc(doc(db, 'news_articles', d.id)), 2000).catch(() => {});
+        }
+      }
+
+      for (const art of targetArticles) {
+        await withTimeout(setDoc(doc(db, 'news_articles', art.id), art), 2000).catch(() => {});
       }
     } catch (err) {
-      console.info('Reset Firestore skipped, applied locally:', err);
+      console.info('Reset Firestore applied locally:', err);
     }
   }
 
   return {
-    config: DEFAULT_SCHOOL_CONFIG,
-    articles: DEFAULT_NEWS_ARTICLES,
+    config: targetConfig,
+    articles: targetArticles,
+    isCustomDefault,
+    savedAt,
   };
 }
-

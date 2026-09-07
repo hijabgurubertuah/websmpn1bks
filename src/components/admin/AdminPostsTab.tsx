@@ -646,10 +646,10 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm hover:shadow cursor-pointer flex items-center gap-2 disabled:opacity-50"
                 >
                   <CheckCircle className="w-4 h-4" />
-                  <span>{saving ? 'Menyimpan...' : 'Simpan Postingan'}</span>
+                  <span>{saving ? 'Menyimpan ke Cloud...' : 'Simpan & Terbitkan ke Cloud (Postingan Ini Saja)'}</span>
                 </button>
               </div>
             </div>

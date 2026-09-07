@@ -111,12 +111,12 @@ export default function App() {
     await deleteNewsArticle(articleId);
   };
 
-  // Manual save all
+  // Manual save all with concurrent execution
   const handleManualSaveAll = async () => {
-    await saveSchoolConfig(config);
-    for (const art of articles) {
-      await saveNewsArticle(art);
-    }
+    await Promise.all([
+      saveSchoolConfig(config),
+      ...articles.map((art) => saveNewsArticle(art)),
+    ]);
   };
 
   // Handle backup restore / reset

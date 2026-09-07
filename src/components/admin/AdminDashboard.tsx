@@ -28,6 +28,7 @@ import { AdminPrincipalTab } from './AdminPrincipalTab';
 import { AdminEmbedsTab } from './AdminEmbedsTab';
 import { AdminFooterTab } from './AdminFooterTab';
 import { AdminSyncTab } from './AdminSyncTab';
+import { saveSchoolConfig } from '../../lib/firebase';
 
 interface AdminDashboardProps {
   config: SchoolConfig;
@@ -64,13 +65,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('header');
   const [savingAll, setSavingAll] = useState(false);
+  const [savingTab, setSavingTab] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('Perubahan Tersimpan!');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const handleSaveClick = async () => {
     setSavingAll(true);
     await onManualSaveAll();
     setSavingAll(false);
+    setToastMessage('Semua Konfigurasi & Berita Tersinkron ke Cloud!');
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
+  };
+
+  const handleSaveCurrentTab = async () => {
+    setSavingTab(true);
+    await saveSchoolConfig(config);
+    setSavingTab(false);
+    setToastMessage(`Perubahan tab ${tabs.find((t) => t.id === activeTab)?.label} berhasil disimpan ke Cloud!`);
     setShowToast(true);
     setTimeout(() => {
       setShowToast(false);
@@ -96,8 +111,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 border border-slate-700 animate-in slide-in-from-bottom-5 duration-200">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <div>
-            <div className="font-bold text-sm">Perubahan Tersimpan!</div>
-            <div className="text-xs text-slate-400">Tersinkron ke penyimpanan dan database Firebase Firestore.</div>
+            <div className="font-bold text-sm">{toastMessage}</div>
+            <div className="text-xs text-slate-400">Tersinkron ke penyimpanan offline &amp; database Firebase Firestore.</div>
           </div>
         </div>
       )}
@@ -189,25 +204,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         type="button"
         id="mobile-sidebar-middle-trigger"
         onClick={() => setIsMobileSidebarOpen(true)}
-        className="fixed top-1/2 -translate-y-1/2 left-0 z-40 md:hidden w-[60px] h-[120px] bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white border-y-2 border-r-2 border-blue-500/70 rounded-r-2xl shadow-2xl shadow-blue-950/80 flex flex-col items-center justify-center gap-2 group transition-all duration-200 active:scale-95 cursor-pointer hover:bg-slate-800 animate-in slide-in-from-left"
+        className="fixed top-1/2 -translate-y-1/2 left-0 z-40 md:hidden w-[28px] h-[120px] bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 text-white border-y border-r border-blue-500/70 rounded-r-xl shadow-2xl shadow-blue-950/80 flex flex-col items-center justify-center gap-3 group transition-all duration-200 active:scale-95 cursor-pointer hover:bg-slate-800 animate-in slide-in-from-left"
         title="Buka Menu Tab Admin"
         aria-label="Buka Menu Tab Admin"
       >
-        {/* Pulse beacon indicator */}
-        <div className="relative flex items-center justify-center">
-          <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-blue-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-400"></span>
-        </div>
-
-        {/* 3-Bar Hamburger Icon */}
-        <div className="p-1 rounded-lg bg-blue-600/30 border border-blue-400/40 text-white group-hover:scale-110 transition-transform">
-          <Menu className="w-7 h-7 text-white stroke-[2.5]" />
-        </div>
-
-        {/* Label */}
-        <span className="text-[10px] uppercase font-black tracking-widest text-blue-300 select-none">
-          MENU
-        </span>
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+        <Menu className="w-4 h-4 text-blue-200 stroke-[2.5] group-hover:text-white transition-transform group-hover:scale-110" />
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-400/50"></span>
       </button>
 
       {/* Mobile Drawer Backdrop */}
@@ -467,6 +470,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               onManualSave={handleSaveClick}
               onDataRestored={onDataRestored}
             />
+          )}
+
+          {/* Granular Quick-Save Bar for Non-Sync and Non-Posts Tabs */}
+          {activeTab !== 'sync' && activeTab !== 'posts' && (
+            <div className="mt-8 bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                  <Save className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                    Simpan Perubahan Tab {tabs.find((t) => t.id === activeTab)?.label}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Simpan langsung ke Firestore (~100ms) tanpa memproses postingan atau tab lain.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveCurrentTab}
+                disabled={savingTab}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all text-xs sm:text-sm cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>{savingTab ? 'Menyimpan...' : `Simpan Tab ${tabs.find((t) => t.id === activeTab)?.label}`}</span>
+              </button>
+            </div>
           )}
 
         </main>
