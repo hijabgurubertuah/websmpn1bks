@@ -4,6 +4,7 @@ export const DEFAULT_SCHOOL_CONFIG: SchoolConfig = {
   adminPassword: 'smpn1bks',
   identity: {
     name: 'SMP Negeri 1 Bengkalis',
+    shortName: 'SMPN 1 Bengkalis',
     tagline: 'Mewujudkan Insan Beriman, Berakhlak Mulia, Cerdas, Terampil, dan Berbudaya Lingkungan',
     npsn: '10495146',
     akreditasi: 'Akreditasi A (Unggul)',
@@ -101,6 +102,18 @@ export const DEFAULT_SCHOOL_CONFIG: SchoolConfig = {
     imageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=600&auto=format&fit=crop&q=80',
     quote: 'Mendidik bukan hanya mentransfer ilmu pengetahuan, melainkan menumbuhkan budi pekerti, akhlak mulia, dan kecintaan pada nilai-nilai kearifan lokal serta kemajuan zaman.',
     fullSpeech: `Assalamu’alaikum Warahmatullahi Wabarakatuh, Salam Sejahtera untuk kita semua.\n\nSelamat datang di portal resmi SMP Negeri 1 Bengkalis. Kami mengucapkan terima kasih atas kepercayaan masyarakat Kabupaten Bengkalis yang telah mempercayakan pendidikan putra-putrinya di sekolah kami.\n\nSMP Negeri 1 Bengkalis yang beralamat di Jl. Pertanian, Bengkalis Kota, senantiasa berkomitmen menghadirkan lingkungan belajar yang kondusif, religius, berbudaya, serta berorientasi pada peningkatan mutu akademik dan non-akademik. Melalui implementasi Kurikulum Merdeka dan penguatan Profil Pelajar Pancasila, kami mendidik setiap siswa agar siap menjadi generasi penerus bangsa yang unggul, berintegritas, dan berwawasan lingkungan.\n\nMari bersama-sama bersinergi mewujudkan masa depan anak-anak kita yang gemilang.\n\nWassalamu’alaikum Warahmatullahi Wabarakatuh.`,
+  },
+  ppdb: {
+    enabled: true,
+    buttonLabel: 'Info PPDB 2026',
+    buttonLink: '#berita',
+    openInNewTab: false,
+    academicYear: '2026/2027',
+    statusText: 'Pendaftaran Dibuka',
+    badgeText: 'Tahun Ajaran 2026/2027',
+    announcement: 'Penerimaan Peserta Didik Baru (PPDB) SMP Negeri 1 Bengkalis Tahun Ajaran 2026/2027 melalui jalur Zonasi, Afirmasi, Perpindahan Tugas Orang Tua, dan Prestasi.',
+    contactPerson: '0812-7561-8899 (Panitia PPDB)',
+    brochureUrl: '',
   },
   embeds: {
     youtubeTitle: 'Profil & Tur Lingkungan SMP Negeri 1 Bengkalis',

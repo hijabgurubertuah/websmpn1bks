@@ -1,6 +1,21 @@
 import React, { useState } from 'react';
 import { FacilityItem, ExtracurricularItem } from '../../types';
-import { Building2, Trophy, Clock, UserCheck, Sparkles, Cpu, Flag, Music, HeartHandshake, MessageSquare, Award } from 'lucide-react';
+import {
+  Building2,
+  Trophy,
+  Clock,
+  UserCheck,
+  Sparkles,
+  Cpu,
+  Flag,
+  Music,
+  HeartHandshake,
+  MessageSquare,
+  Award,
+  BookOpen,
+  Users,
+  Target,
+} from 'lucide-react';
 
 interface FacilitiesAndEkskulProps {
   facilities: FacilityItem[];
@@ -14,7 +29,7 @@ export const FacilitiesAndEkskul: React.FC<FacilitiesAndEkskulProps> = ({
   const [activeTab, setActiveTab] = useState<'facilities' | 'ekskul'>('facilities');
 
   const getEkskulIcon = (iconName: string) => {
-    switch (iconName.toLowerCase()) {
+    switch (iconName?.toLowerCase()) {
       case 'cpu':
         return <Cpu className="w-6 h-6 text-blue-600" />;
       case 'flag':
@@ -25,6 +40,14 @@ export const FacilitiesAndEkskul: React.FC<FacilitiesAndEkskulProps> = ({
         return <HeartHandshake className="w-6 h-6 text-emerald-600" />;
       case 'messagesquare':
         return <MessageSquare className="w-6 h-6 text-indigo-600" />;
+      case 'bookopen':
+        return <BookOpen className="w-6 h-6 text-teal-600" />;
+      case 'users':
+        return <Users className="w-6 h-6 text-cyan-600" />;
+      case 'target':
+        return <Target className="w-6 h-6 text-rose-600" />;
+      case 'award':
+        return <Award className="w-6 h-6 text-yellow-600" />;
       case 'trophy':
       default:
         return <Trophy className="w-6 h-6 text-amber-600" />;

@@ -27,6 +27,7 @@ import { OfflineIndicator } from './components/public/OfflineIndicator';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AdminLoginModal } from './components/admin/AdminLoginModal';
 import { ShieldCheck, Sparkles } from 'lucide-react';
+import { syncPWAManifest } from './lib/usePWAInstall';
 
 export default function App() {
   const [config, setConfig] = useState<SchoolConfig>(DEFAULT_SCHOOL_CONFIG);
@@ -54,22 +55,10 @@ export default function App() {
     initData();
   }, []);
 
-  // Synchronize document title and favicon
+  // Synchronize document title, favicon, and PWA Manifest
   useEffect(() => {
-    if (config.identity.name) {
-      document.title = `${config.identity.name} - Portal Resmi Sekolah`;
-    }
-
-    if (config.identity.faviconUrl) {
-      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
-      if (!link) {
-        link = document.createElement('link');
-        link.rel = 'icon';
-        document.head.appendChild(link);
-      }
-      link.href = config.identity.faviconUrl;
-    }
-  }, [config.identity.name, config.identity.faviconUrl]);
+    syncPWAManifest(config.identity);
+  }, [config.identity]);
 
   // Request open admin mode with password protection
   const handleOpenAdmin = () => {

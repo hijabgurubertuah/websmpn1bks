@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SchoolConfig, NavMenu } from '../../types';
-import { Menu, X, ChevronDown, School, ShieldCheck, Settings, Search } from 'lucide-react';
+import { Menu, X, ChevronDown, School, ShieldCheck, Settings, Search, GraduationCap } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
@@ -193,17 +193,25 @@ export const Navbar: React.FC<NavbarProps> = ({ config, onOpenAdmin, onSearchCli
               <Search className="w-5 h-5" />
             </a>
 
-            <a
-              href="#berita"
-              onClick={(e) => {
-                e.preventDefault();
-                handleNavClick('#berita');
-              }}
-              className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-sm hover:shadow transition-all cursor-pointer"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Info PPDB 2026</span>
-            </a>
+            {/* Dynamic PPDB Button if enabled */}
+            {config.ppdb?.enabled !== false && (
+              <a
+                href={config.ppdb?.buttonLink || '#berita'}
+                target={config.ppdb?.openInNewTab ? '_blank' : undefined}
+                rel={config.ppdb?.openInNewTab ? 'noopener noreferrer' : undefined}
+                onClick={(e) => {
+                  const link = config.ppdb?.buttonLink || '#berita';
+                  if (link.startsWith('#')) {
+                    e.preventDefault();
+                    handleNavClick(link);
+                  }
+                }}
+                className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-sm hover:shadow transition-all cursor-pointer"
+              >
+                <GraduationCap className="w-4 h-4" />
+                <span>{config.ppdb?.buttonLabel || 'Info PPDB 2026'}</span>
+              </a>
+            )}
 
             {/* The single, unified admin panel button with gear icon */}
             <button
@@ -302,19 +310,26 @@ export const Navbar: React.FC<NavbarProps> = ({ config, onOpenAdmin, onSearchCli
             );
           })}
 
-          <div className="pt-3 space-y-2">
-            <a
-              href="#berita"
-              onClick={(e) => {
-                e.preventDefault();
-                handleNavClick('#berita');
-              }}
-              className="flex items-center justify-center gap-2 w-full bg-blue-700 text-white font-bold py-3 rounded-lg text-center text-sm"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Info PPDB 2026/2027</span>
-            </a>
-          </div>
+          {config.ppdb?.enabled !== false && (
+            <div className="pt-3 space-y-2">
+              <a
+                href={config.ppdb?.buttonLink || '#berita'}
+                target={config.ppdb?.openInNewTab ? '_blank' : undefined}
+                rel={config.ppdb?.openInNewTab ? 'noopener noreferrer' : undefined}
+                onClick={(e) => {
+                  const link = config.ppdb?.buttonLink || '#berita';
+                  if (link.startsWith('#')) {
+                    e.preventDefault();
+                    handleNavClick(link);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 w-full bg-blue-700 text-white font-bold py-3 rounded-lg text-center text-sm"
+              >
+                <GraduationCap className="w-4 h-4" />
+                <span>{config.ppdb?.buttonLabel || 'Info PPDB 2026/2027'}</span>
+              </a>
+            </div>
+          )}
         </div>
       )}
     </nav>

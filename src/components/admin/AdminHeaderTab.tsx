@@ -56,14 +56,27 @@ export const AdminHeaderTab: React.FC<AdminHeaderTabProps> = ({ config, onChange
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Nama Sekolah
+              Nama Sekolah (Website &amp; Aplikasi PWA)
             </label>
             <input
               type="text"
               value={identity.name}
               onChange={(e) => updateIdentity('name', e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-              placeholder="Contoh: SMA Negeri 1 Nusantara"
+              placeholder="Contoh: SMP Negeri 1 Bengkalis"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              Nama Singkat (Ikon Layar HP / Home Screen)
+            </label>
+            <input
+              type="text"
+              value={identity.shortName || ''}
+              onChange={(e) => updateIdentity('shortName', e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              placeholder="Contoh: SMPN 1 Bengkalis"
             />
           </div>
 
@@ -89,7 +102,7 @@ export const AdminHeaderTab: React.FC<AdminHeaderTabProps> = ({ config, onChange
               value={identity.npsn}
               onChange={(e) => updateIdentity('npsn', e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"
-              placeholder="20108392"
+              placeholder="10495146"
             />
           </div>
 
@@ -106,25 +119,27 @@ export const AdminHeaderTab: React.FC<AdminHeaderTabProps> = ({ config, onChange
             />
           </div>
 
-          {/* Logo Upload with Compression & Live Preview */}
-          <ImageUploadButton
-            label="Logo Sekolah (Disimpan di Firebase)"
-            value={identity.logoUrl}
-            onChange={(url) => updateIdentity('logoUrl', url)}
-            preset="logo"
-            aspectRatio="square"
-            placeholder="https://..."
-          />
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Logo Upload with Compression & Live Preview */}
+            <ImageUploadButton
+              label="Logo Sekolah & Ikon Aplikasi PWA"
+              value={identity.logoUrl}
+              onChange={(url) => updateIdentity('logoUrl', url)}
+              preset="logo"
+              aspectRatio="square"
+              placeholder="https://..."
+            />
 
-          {/* Favicon Upload with Compression & Live Preview */}
-          <ImageUploadButton
-            label="Favicon Browser (Tab Icon)"
-            value={identity.faviconUrl}
-            onChange={(url) => updateIdentity('faviconUrl', url)}
-            preset="favicon"
-            aspectRatio="square"
-            placeholder="https://..."
-          />
+            {/* Favicon Upload with Compression & Live Preview */}
+            <ImageUploadButton
+              label="Favicon Tab Browser"
+              value={identity.faviconUrl}
+              onChange={(url) => updateIdentity('faviconUrl', url)}
+              preset="favicon"
+              aspectRatio="square"
+              placeholder="https://..."
+            />
+          </div>
         </div>
 
         {/* Running Ticker Setting */}

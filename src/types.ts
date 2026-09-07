@@ -23,6 +23,7 @@ export interface HighlightStat {
 
 export interface SchoolIdentity {
   name: string;
+  shortName?: string;
   tagline: string;
   npsn: string;
   akreditasi: string;
@@ -116,6 +117,19 @@ export interface FooterConfig {
   copyright: string;
 }
 
+export interface PPDBConfig {
+  enabled: boolean;
+  buttonLabel: string;
+  buttonLink: string;
+  openInNewTab: boolean;
+  academicYear: string;
+  statusText: string;
+  badgeText?: string;
+  announcement?: string;
+  contactPerson?: string;
+  brochureUrl?: string;
+}
+
 export interface SchoolConfig {
   adminPassword?: string;
   identity: SchoolIdentity;
@@ -123,6 +137,7 @@ export interface SchoolConfig {
   navMenus: NavMenu[];
   layoutSections: LayoutSections;
   principal: PrincipalConfig;
+  ppdb?: PPDBConfig;
   embeds: EmbedsConfig;
   facilities: FacilityItem[];
   extracurriculars: ExtracurricularItem[];

@@ -63,6 +63,11 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
   const [resetPasswordError, setResetPasswordError] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
 
+  // Password verification for set default
+  const [defaultPasswordInput, setDefaultPasswordInput] = useState('');
+  const [defaultPasswordError, setDefaultPasswordError] = useState('');
+  const [showDefaultPassword, setShowDefaultPassword] = useState(false);
+
   // Admin password change
   const [newPassword, setNewPassword] = useState(config.adminPassword || 'smpn1bks');
   const [showPwd, setShowPwd] = useState(false);
@@ -165,14 +170,22 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
   };
 
   const handleSaveCurrentAsDefault = async () => {
+    const currentPass = config.adminPassword || 'smpn1bks';
+    if (defaultPasswordInput !== currentPass && defaultPasswordInput !== 'smpn1bks') {
+      setDefaultPasswordError('Password admin salah.');
+      return;
+    }
+
     setSavingDefault(true);
+    setDefaultPasswordError('');
     try {
       await saveCurrentAsNewDefault(config, articles);
       await loadDefaultMetadata();
       setShowSetDefaultModal(false);
+      setDefaultPasswordInput('');
       setToastNotice({
         type: 'success',
-        message: 'Pengaturan saat ini berhasil disimpan sebagai default.',
+        message: 'Pengaturan saat ini berhasil disimpan sebagai default baru.',
       });
     } catch (err) {
       setToastNotice({
@@ -450,17 +463,57 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
 
       {/* Set Default Modal */}
       {showSetDefaultModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
-            <h4 className="font-bold text-slate-900 text-sm">Simpan Sebagai Default?</h4>
-            <p className="text-xs text-slate-600">
-              Kondisi situs saat ini akan disimpan sebagai template awal yang dapat dipulihkan kapan saja.
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <h4 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+              <BookmarkCheck className="w-5 h-5 text-indigo-600" />
+              <span>Simpan Sebagai Default Baru</span>
+            </h4>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Kondisi situs saat ini (konfigurasi, identitas, &amp; berita) akan dijadikan standar default baru. Masukkan password admin untuk mengonfirmasi:
             </p>
-            <div className="flex justify-end gap-2">
+
+            <div className="space-y-1.5">
+              <div className="relative">
+                <input
+                  type={showDefaultPassword ? 'text' : 'password'}
+                  value={defaultPasswordInput}
+                  onChange={(e) => {
+                    setDefaultPasswordInput(e.target.value);
+                    setDefaultPasswordError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveCurrentAsDefault();
+                  }}
+                  placeholder="Masukkan password admin..."
+                  className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDefaultPassword(!showDefaultPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showDefaultPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {defaultPasswordError && (
+                <p className="text-[11px] text-red-600 font-bold flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>{defaultPasswordError}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => setShowSetDefaultModal(false)}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
+                onClick={() => {
+                  setShowSetDefaultModal(false);
+                  setDefaultPasswordInput('');
+                  setDefaultPasswordError('');
+                }}
+                className="px-3.5 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Batal
               </button>
@@ -468,9 +521,9 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
                 type="button"
                 onClick={handleSaveCurrentAsDefault}
                 disabled={savingDefault}
-                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
               >
-                {savingDefault ? 'Menyimpan...' : 'Ya, Simpan'}
+                {savingDefault ? 'Menyimpan...' : 'Ya, Simpan Default'}
               </button>
             </div>
           </div>
@@ -479,28 +532,49 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
 
       {/* Reset Modal */}
       {showResetModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl">
-            <h4 className="font-bold text-red-600 text-sm flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4" />
-              <span>Reset Semua Data</span>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <h4 className="font-bold text-red-600 text-sm sm:text-base flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              <span>Reset Semua Data Situs</span>
             </h4>
-            <p className="text-xs text-slate-600">
-              Masukkan password admin untuk mengonfirmasi reset:
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Tindakan ini akan mengembalikan seluruh konfigurasi dan berita ke kondisi default. Masukkan password admin untuk konfirmasi:
             </p>
-            <div className="relative">
-              <input
-                type={showResetPassword ? 'text' : 'password'}
-                value={resetPasswordInput}
-                onChange={(e) => setResetPasswordInput(e.target.value)}
-                placeholder="Password admin..."
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
-              />
+
+            <div className="space-y-1.5">
+              <div className="relative">
+                <input
+                  type={showResetPassword ? 'text' : 'password'}
+                  value={resetPasswordInput}
+                  onChange={(e) => {
+                    setResetPasswordInput(e.target.value);
+                    setResetPasswordError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleConfirmReset();
+                  }}
+                  placeholder="Masukkan password admin..."
+                  className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-red-600 focus:outline-none"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowResetPassword(!showResetPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {resetPasswordError && (
+                <p className="text-[11px] text-red-600 font-bold flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>{resetPasswordError}</span>
+                </p>
+              )}
             </div>
-            {resetPasswordError && (
-              <p className="text-[11px] text-red-600 font-bold">{resetPasswordError}</p>
-            )}
-            <div className="flex justify-end gap-2">
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => {
@@ -508,7 +582,7 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
                   setResetPasswordInput('');
                   setResetPasswordError('');
                 }}
-                className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold cursor-pointer"
+                className="px-3.5 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
               >
                 Batal
               </button>
@@ -516,7 +590,7 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
                 type="button"
                 onClick={handleConfirmReset}
                 disabled={resetting}
-                className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50"
               >
                 {resetting ? 'Mereset...' : 'Reset Sekarang'}
               </button>

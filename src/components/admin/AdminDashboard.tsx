@@ -19,10 +19,16 @@ import {
   X,
   ChevronRight,
   Menu,
+  Calendar,
+  Building2,
+  GraduationCap,
 } from 'lucide-react';
 import { AdminHeaderTab } from './AdminHeaderTab';
 import { AdminMenusTab } from './AdminMenusTab';
+import { AdminPPDBTab } from './AdminPPDBTab';
 import { AdminPostsTab } from './AdminPostsTab';
+import { AdminAgendaTab } from './AdminAgendaTab';
+import { AdminFacilitiesEkskulTab } from './AdminFacilitiesEkskulTab';
 import { AdminLayoutTab } from './AdminLayoutTab';
 import { AdminPrincipalTab } from './AdminPrincipalTab';
 import { AdminEmbedsTab } from './AdminEmbedsTab';
@@ -45,7 +51,10 @@ interface AdminDashboardProps {
 export type AdminTab =
   | 'header'
   | 'menus'
+  | 'ppdb'
   | 'posts'
+  | 'agenda'
+  | 'facilities'
   | 'layout'
   | 'principal'
   | 'embeds'
@@ -95,7 +104,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: 'header', label: 'Header & Identitas', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'menus', label: 'Menu & Dropdown', icon: <Layers className="w-4 h-4" /> },
+    { id: 'ppdb', label: 'PPDB Online', icon: <GraduationCap className="w-4 h-4" /> },
     { id: 'posts', label: 'Postingan Berita', icon: <FileText className="w-4 h-4" /> },
+    { id: 'agenda', label: 'Agenda & Jadwal', icon: <Calendar className="w-4 h-4" /> },
+    { id: 'facilities', label: 'Fasilitas & Ekskul', icon: <Building2 className="w-4 h-4" /> },
     { id: 'layout', label: 'Tata Letak', icon: <Layout className="w-4 h-4" /> },
     { id: 'principal', label: 'Sambutan Kepsek', icon: <Award className="w-4 h-4" /> },
     { id: 'embeds', label: 'Embed Video & Peta', icon: <Video className="w-4 h-4" /> },
@@ -350,7 +362,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
               <span>Menu Navigasi CMS</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200">
-                8 Tab
+                11 Tab
               </span>
             </div>
 
@@ -438,12 +450,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <AdminMenusTab config={config} onChange={onChangeConfig} />
           )}
 
+          {activeTab === 'ppdb' && (
+            <AdminPPDBTab config={config} onChange={onChangeConfig} />
+          )}
+
           {activeTab === 'posts' && (
             <AdminPostsTab
               articles={articles}
               onSaveArticle={onSaveArticle}
               onDeleteArticle={onDeleteArticle}
             />
+          )}
+
+          {activeTab === 'agenda' && (
+            <AdminAgendaTab config={config} onChange={onChangeConfig} />
+          )}
+
+          {activeTab === 'facilities' && (
+            <AdminFacilitiesEkskulTab config={config} onChange={onChangeConfig} />
           )}
 
           {activeTab === 'layout' && (

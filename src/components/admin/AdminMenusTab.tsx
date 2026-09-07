@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
 import { SchoolConfig, NavMenu, DropdownItem } from '../../types';
-import { Plus, Trash2, ChevronDown, ListPlus, MoveUp, MoveDown, Layers, Link2 } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  ChevronDown,
+  ListPlus,
+  MoveUp,
+  MoveDown,
+  Layers,
+  Link2,
+  Edit2,
+  Check,
+  Info,
+  FileText,
+  Bookmark,
+  GraduationCap,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 
 interface AdminMenusTabProps {
   config: SchoolConfig;
@@ -18,6 +35,12 @@ export const AdminMenusTab: React.FC<AdminMenusTabProps> = ({ config, onChange }
   const [subLabel, setSubLabel] = useState('');
   const [subPath, setSubPath] = useState('');
   const [subDesc, setSubDesc] = useState('');
+
+  // Editing submenu state
+  const [editingSubId, setEditingSubId] = useState<string | null>(null);
+  const [editSubLabel, setEditSubLabel] = useState('');
+  const [editSubPath, setEditSubPath] = useState('');
+  const [editSubDesc, setEditSubDesc] = useState('');
 
   const updateMenus = (updated: NavMenu[]) => {
     onChange({
@@ -114,6 +137,40 @@ export const AdminMenusTab: React.FC<AdminMenusTabProps> = ({ config, onChange }
     );
   };
 
+  const handleStartEditSubmenu = (sub: DropdownItem) => {
+    setEditingSubId(sub.id);
+    setEditSubLabel(sub.label);
+    setEditSubPath(sub.path);
+    setEditSubDesc(sub.description || '');
+  };
+
+  const handleSaveEditSubmenu = (menuId: string) => {
+    if (!editingSubId || !editSubLabel.trim()) return;
+
+    updateMenus(
+      navMenus.map((m) => {
+        if (m.id === menuId) {
+          return {
+            ...m,
+            dropdownItems: (m.dropdownItems || []).map((sub) =>
+              sub.id === editingSubId
+                ? {
+                    ...sub,
+                    label: editSubLabel.trim(),
+                    path: editSubPath.trim() || '#',
+                    description: editSubDesc.trim() || undefined,
+                  }
+                : sub
+            ),
+          };
+        }
+        return m;
+      })
+    );
+
+    setEditingSubId(null);
+  };
+
   const moveMenu = (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= navMenus.length) return;
@@ -126,8 +183,118 @@ export const AdminMenusTab: React.FC<AdminMenusTabProps> = ({ config, onChange }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200">
       
+      {/* Panduan Pengisian Menu & Konten Profil */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 sm:p-6 space-y-3">
+        <div className="flex items-start gap-3">
+          <span className="p-2 bg-blue-600 text-white rounded-xl shrink-0 mt-0.5 shadow-xs">
+            <Info className="w-5 h-5" />
+          </span>
+          <div className="space-y-1.5">
+            <h3 className="font-bold text-slate-900 text-sm sm:text-base">
+              Panduan Mengisi Visi &amp; Misi, Profil Sekolah, &amp; Menu Lainnya
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Menu navigasi berfungsi menghubungkan pengunjung ke berbagai informasi sekolah. Anda dapat mengatur target link tujuan sesuai kebutuhan:
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
+              <div className="bg-white/90 p-3 rounded-xl border border-blue-100 space-y-1">
+                <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5" /> 1. Buat Artikel / Halaman
+                </span>
+                <p className="text-[11px] text-slate-600">
+                  Tulis isi <strong>Visi &amp; Misi</strong> atau <strong>Profil Sekolah</strong> di tab <em>Postingan Berita</em>, lalu centang <em>"Sematkan / Pin"</em> agar selalu di atas.
+                </p>
+              </div>
+
+              <div className="bg-white/90 p-3 rounded-xl border border-blue-100 space-y-1">
+                <span className="text-[11px] font-bold text-indigo-700 flex items-center gap-1">
+                  <Link2 className="w-3.5 h-3.5" /> 2. Tautkan Dokumen / Link
+                </span>
+                <p className="text-[11px] text-slate-600">
+                  Masukkan link Google Drive PDF visi misi, formulir Google Form PPDB, atau website kementerian pada kolom <strong>Link Target</strong>.
+                </p>
+              </div>
+
+              <div className="bg-white/90 p-3 rounded-xl border border-blue-100 space-y-1">
+                <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+                  <Bookmark className="w-3.5 h-3.5" /> 3. Lompat ke Bagian Beranda
+                </span>
+                <p className="text-[11px] text-slate-600">
+                  Gunakan ID hash: <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">#sambutan</code>, <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">#berita</code>, <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">#agenda</code>, <code className="bg-slate-100 px-1 py-0.5 rounded text-[10px]">#fasilitas</code>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tombol Khusus PPDB Quick Toggle */}
+      <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 shrink-0">
+            <GraduationCap className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-sm text-slate-900">
+                Tombol Khusus PPDB di Bilah Menu
+              </h4>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  config.ppdb?.enabled !== false
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {config.ppdb?.enabled !== false ? 'Aktif (Tampil)' : 'Disembunyikan'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Tombol PPDB muncul khusus di sebelah tombol pencarian. Sembunyikan tombol saat periode PPDB telah usai.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            onChange({
+              ...config,
+              ppdb: {
+                ...(config.ppdb || {
+                  enabled: true,
+                  buttonLabel: 'Info PPDB 2026',
+                  buttonLink: '#berita',
+                  openInNewTab: false,
+                  academicYear: '2026/2027',
+                  statusText: 'Pendaftaran Dibuka',
+                }),
+                enabled: config.ppdb?.enabled === false ? true : false,
+              },
+            })
+          }
+          className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            config.ppdb?.enabled !== false
+              ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300'
+              : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+          }`}
+        >
+          {config.ppdb?.enabled !== false ? (
+            <>
+              <EyeOff className="w-4 h-4" />
+              <span>Sembunyikan Tombol PPDB</span>
+            </>
+          ) : (
+            <>
+              <Eye className="w-4 h-4" />
+              <span>Tampilkan Tombol PPDB</span>
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Overview & Add Form */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
         <div>
@@ -348,25 +515,84 @@ export const AdminMenusTab: React.FC<AdminMenusTabProps> = ({ config, onChange }
                       menu.dropdownItems.map((sub) => (
                         <div
                           key={sub.id}
-                          className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                          className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2"
                         >
-                          <div>
-                            <span className="font-bold text-slate-800">{sub.label}</span>
-                            <span className="text-slate-400 font-mono ml-2">({sub.path})</span>
-                            {sub.description && (
-                              <span className="text-slate-500 block text-[11px] mt-0.5">
-                                {sub.description}
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSubmenuItem(menu.id, sub.id)}
-                            className="text-slate-400 hover:text-red-600 p-1 cursor-pointer"
-                            title="Hapus Submenu"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {editingSubId === sub.id ? (
+                            /* Submenu Edit Form */
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  value={editSubLabel}
+                                  onChange={(e) => setEditSubLabel(e.target.value)}
+                                  placeholder="Label Submenu"
+                                  className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                                />
+                                <input
+                                  type="text"
+                                  value={editSubPath}
+                                  onChange={(e) => setEditSubPath(e.target.value)}
+                                  placeholder="Link / URL target"
+                                  className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                                />
+                                <input
+                                  type="text"
+                                  value={editSubDesc}
+                                  onChange={(e) => setEditSubDesc(e.target.value)}
+                                  placeholder="Keterangan singkat"
+                                  className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                                />
+                              </div>
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSubId(null)}
+                                  className="px-2.5 py-1 text-slate-600 hover:bg-slate-200 rounded-md text-xs font-semibold cursor-pointer"
+                                >
+                                  Batal
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditSubmenu(menu.id)}
+                                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Simpan Perubahan</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Normal Submenu Row */
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="font-bold text-slate-800">{sub.label}</span>
+                                <span className="text-slate-400 font-mono ml-2">({sub.path})</span>
+                                {sub.description && (
+                                  <span className="text-slate-500 block text-[11px] mt-0.5">
+                                    {sub.description}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditSubmenu(sub)}
+                                  className="text-slate-400 hover:text-blue-600 p-1 rounded-md hover:bg-blue-50 cursor-pointer"
+                                  title="Edit Submenu"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSubmenuItem(menu.id, sub.id)}
+                                  className="text-slate-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 cursor-pointer"
+                                  title="Hapus Submenu"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (

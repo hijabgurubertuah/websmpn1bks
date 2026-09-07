@@ -14,8 +14,8 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
           id: '/',
-          name: 'SMA Negeri 1 Nusantara - Portal Resmi',
-          short_name: 'SMAN1Nusantara',
+          name: 'SMP Negeri 1 Bengkalis - Portal Resmi',
+          short_name: 'SMPN 1 Bengkalis',
           description: 'Website resmi profil sekolah, informasi akademik, PPDB, agenda kegiatan, dan sistem manajemen konten.',
           theme_color: '#0f172a',
           background_color: '#0f172a',
