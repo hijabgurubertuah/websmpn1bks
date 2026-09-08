@@ -19,6 +19,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      // Suppress benign [vite] websocket connection logs in sandboxed preview iframe
+      (function() {
+        const origError = console.error;
+        console.error = function(...args) {
+          if (args.length > 0 && typeof args[0] === 'string' && args[0].includes('[vite]')) {
+            console.debug(...args);
+            return;
+          }
+          origError.apply(console, args);
+        };
+      })();
+    </script>
   </head>
   <body class="font-sans antialiased bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white">
     <div id="root"></div>
