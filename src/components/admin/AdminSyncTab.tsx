@@ -14,6 +14,7 @@ import {
   getDriveAccessToken,
 } from '../../lib/googleDrive';
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
+import { FirestoreDiagnosticPanel } from './FirestoreDiagnosticPanel';
 import { User } from 'firebase/auth';
 import {
   Cloud,
@@ -316,6 +317,9 @@ export const AdminSyncTab: React.FC<AdminSyncTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Firestore Storage Diagnostics & Quota Monitor */}
+      <FirestoreDiagnosticPanel />
 
       {/* Google Drive Card */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-xs space-y-4">

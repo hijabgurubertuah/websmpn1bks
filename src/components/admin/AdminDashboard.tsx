@@ -76,6 +76,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<AdminTab>('header');
   const [savingAll, setSavingAll] = useState(false);
   const [savingTab, setSavingTab] = useState(false);
+  const [hasUnsavedCloudChanges, setHasUnsavedCloudChanges] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('Perubahan Tersimpan!');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -83,10 +84,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Lock body scroll when mobile sidebar drawer is open to prevent background scrolling
   useBodyScrollLock(isMobileSidebarOpen);
 
+  const handleConfigUpdate = (newConfig: SchoolConfig) => {
+    setHasUnsavedCloudChanges(true);
+    onChangeConfig(newConfig);
+  };
+
   const handleSaveClick = async () => {
     setSavingAll(true);
     try {
       await onManualSaveAll();
+      setHasUnsavedCloudChanges(false);
       setToastMessage('Semua Konfigurasi & Berita Tersinkron ke Cloud!');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -103,6 +110,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setSavingTab(true);
     try {
       await saveSchoolConfig(config);
+      setHasUnsavedCloudChanges(false);
       setToastMessage(`Perubahan tab ${tabs.find((t) => t.id === activeTab)?.label} berhasil disimpan ke Cloud!`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -192,6 +200,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
+                onClick={() => setActiveTab('sync')}
+                className={`hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  activeTab === 'sync'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+                title="Buka Diagnostik Penyimpanan Firestore"
+              >
+                <Database className="w-4 h-4 text-blue-400" />
+                <span>Diagnostik DB</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={onCloseAdmin}
                 className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Buka tampilan publik"
@@ -200,11 +222,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <span>Pratinjau Live</span>
               </button>
 
+              {hasUnsavedCloudChanges ? (
+                <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  <span>Draf Lokal (Belum Disimpan)</span>
+                </span>
+              ) : (
+                <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Tersimpan di Cloud</span>
+                </span>
+              )}
+
               <button
                 type="button"
                 onClick={handleSaveClick}
                 disabled={savingAll}
-                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer"
+                className={`inline-flex items-center gap-2 text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer ${
+                  hasUnsavedCloudChanges
+                    ? 'bg-blue-600 hover:bg-blue-500 ring-2 ring-blue-400/70 shadow-blue-500/30'
+                    : 'bg-blue-600 hover:bg-blue-500 disabled:opacity-50'
+                }`}
+                title="Tulis dan simpan seluruh data ke database Firebase Firestore"
               >
                 <Save className={`w-4 h-4 ${savingAll ? 'animate-spin' : ''}`} />
                 <span>{savingAll ? 'Menyimpan...' : 'Simpan ke Cloud'}</span>
@@ -457,15 +496,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* Dynamic Tab Views */}
           {activeTab === 'header' && (
-            <AdminHeaderTab config={config} onChange={onChangeConfig} />
+            <AdminHeaderTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'menus' && (
-            <AdminMenusTab config={config} onChange={onChangeConfig} />
+            <AdminMenusTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'ppdb' && (
-            <AdminPPDBTab config={config} onChange={onChangeConfig} />
+            <AdminPPDBTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'posts' && (
@@ -477,34 +516,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
 
           {activeTab === 'agenda' && (
-            <AdminAgendaTab config={config} onChange={onChangeConfig} />
+            <AdminAgendaTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'facilities' && (
-            <AdminFacilitiesEkskulTab config={config} onChange={onChangeConfig} />
+            <AdminFacilitiesEkskulTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'layout' && (
-            <AdminLayoutTab config={config} onChange={onChangeConfig} />
+            <AdminLayoutTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'principal' && (
-            <AdminPrincipalTab config={config} onChange={onChangeConfig} />
+            <AdminPrincipalTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'embeds' && (
-            <AdminEmbedsTab config={config} onChange={onChangeConfig} />
+            <AdminEmbedsTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'footer' && (
-            <AdminFooterTab config={config} onChange={onChangeConfig} />
+            <AdminFooterTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'sync' && (
             <AdminSyncTab
               config={config}
               articles={articles}
-              onChangeConfig={onChangeConfig}
+              onChangeConfig={handleConfigUpdate}
               onManualSave={handleSaveClick}
               onDataRestored={onDataRestored}
             />
@@ -522,7 +561,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Simpan Perubahan Tab {tabs.find((t) => t.id === activeTab)?.label}
                   </h4>
                   <p className="text-[11px] text-slate-500">
-                    Simpan langsung ke Firestore (~100ms) tanpa memproses postingan atau tab lain.
+                    Penulisan ke Firebase hanya dilakukan saat tombol ditekan untuk menghemat kuota limit database.
                   </p>
                 </div>
               </div>

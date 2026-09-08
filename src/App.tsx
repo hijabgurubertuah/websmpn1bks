@@ -9,6 +9,7 @@ import { DEFAULT_SCHOOL_CONFIG, DEFAULT_NEWS_ARTICLES } from './lib/defaultData'
 import {
   loadSchoolConfig,
   saveSchoolConfig,
+  saveLocalDraftConfig,
   loadNewsArticles,
   saveNewsArticle,
   deleteNewsArticle,
@@ -80,10 +81,11 @@ export default function App() {
   };
 
   // Handle configuration update from Admin
+  // Strictly saves to local state & browser storage (IndexedDB/localStorage).
+  // ZERO writes to Firebase Firestore occur during typing/toggling to preserve write quota!
   const handleConfigChange = (newConfig: SchoolConfig) => {
     setConfig(newConfig);
-    // Background auto-save
-    saveSchoolConfig(newConfig);
+    saveLocalDraftConfig(newConfig);
   };
 
   // Handle article save from Admin

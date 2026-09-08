@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import {
   initializeFirestore,
   getFirestore,
+  setLogLevel,
   doc,
   getDoc,
   setDoc,
@@ -13,6 +14,13 @@ import {
 import { SchoolConfig, NewsArticle } from '../types';
 import { DEFAULT_SCHOOL_CONFIG, DEFAULT_NEWS_ARTICLES } from './defaultData';
 import { getOfflineItem, setOfflineItem } from './offlineStorage';
+
+// Silence internal retry and connection warning logs from Firestore in browser/iframe environments
+try {
+  setLogLevel('silent');
+} catch {
+  // ignore
+}
 
 const FIREBASE_CONFIG = {
   projectId: 'gen-lang-client-0999699449',
@@ -30,11 +38,11 @@ const CUSTOM_DEFAULT_CONFIG_KEY = 'smpn1_bengkalis_custom_default_config_v1';
 const CUSTOM_DEFAULT_NEWS_KEY = 'smpn1_bengkalis_custom_default_news_v1';
 const CUSTOM_DEFAULT_META_KEY = 'smpn1_bengkalis_custom_default_meta_v1';
 
-let app: FirebaseApp | null = null;
-let db: Firestore | null = null;
+export let app: FirebaseApp | null = null;
+export let db: Firestore | null = null;
 
 // Safe promise timeout helper to prevent hanging if connection is offline/slow
-async function withTimeout<T>(promise: Promise<T>, timeoutMs = 3500): Promise<T> {
+export async function withTimeout<T>(promise: Promise<T>, timeoutMs = 3500): Promise<T> {
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
@@ -57,9 +65,8 @@ try {
     app = getApp();
   }
 
-  // Use initializeFirestore with experimentalForceLongPolling to prevent WebChannel stream disconnects
+  // Use initializeFirestore with experimentalAutoDetectLongPolling (cannot be combined with experimentalForceLongPolling)
   const firestoreSettings = {
-    experimentalForceLongPolling: true,
     experimentalAutoDetectLongPolling: true,
     ignoreUndefinedProperties: true,
   };
@@ -92,7 +99,8 @@ export async function checkFirebaseConnection(): Promise<{
   }
   try {
     const testDoc = doc(db, 'system_health', 'ping');
-    await withTimeout(setDoc(testDoc, { ping: Date.now() }, { merge: true }), 3000);
+    // READ ONLY check to avoid consuming write quota on simple ping checks
+    await withTimeout(getDoc(testDoc), 3000);
     return {
       connected: true,
       message: 'Terhubung ke Google Cloud Firebase Firestore',
@@ -107,16 +115,25 @@ export async function checkFirebaseConnection(): Promise<{
 }
 
 /**
- * Save school general configuration (header, identity, layout, menus, embeds, etc.)
+ * Save configuration purely to local browser storage (IndexedDB & localStorage).
+ * STRICTLY ZERO writes to Firebase Firestore to prevent consuming database write quotas during typing/editing.
  */
-export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
-  // Always persist locally first for instant offline loading & zero data loss
+export async function saveLocalDraftConfig(config: SchoolConfig): Promise<void> {
   try {
     localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(config));
     await setOfflineItem('school_config', config);
   } catch (e) {
     console.error('Error saving school config locally', e);
   }
+}
+
+/**
+ * Save school general configuration to Cloud Firestore.
+ * Triggered ONLY when the user explicitly clicks a save/sync button.
+ */
+export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
+  // Always persist locally first for instant offline loading & zero data loss
+  await saveLocalDraftConfig(config);
 
   // Sync to Firebase Firestore (single document to save write quota and prevent rate limits)
   if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
@@ -141,14 +158,15 @@ export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
 }
 
 /**
- * Load school general configuration
+ * Load school general configuration.
+ * Read-only from cache/cloud without automatic background write seeds.
  */
 export async function loadSchoolConfig(): Promise<SchoolConfig> {
   // 1. First check IndexedDB for super-fast offline startup
   try {
     const cached = await getOfflineItem<SchoolConfig>('school_config');
     if (cached) {
-      // Background revalidate from Firestore if online
+      // Background revalidate from Firestore if online (read-only)
       if (db && typeof navigator !== 'undefined' && navigator.onLine) {
         const configDocRef = doc(db, 'school_portal', 'main_config');
         withTimeout(getDoc(configDocRef), 3000)
@@ -179,7 +197,7 @@ export async function loadSchoolConfig(): Promise<SchoolConfig> {
     console.error('Error reading local config', e);
   }
 
-  // 3. Try Firebase Firestore if local cache is completely empty
+  // 3. Try Firebase Firestore if local cache is completely empty (read-only, no auto-seed writes)
   if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
       const configDocRef = doc(db, 'school_portal', 'main_config');
@@ -190,8 +208,7 @@ export async function loadSchoolConfig(): Promise<SchoolConfig> {
         await setOfflineItem('school_config', cloudData);
         return cloudData;
       } else {
-        // First-time cloud init: seed default school configuration to Firestore
-        withTimeout(setDoc(configDocRef, DEFAULT_SCHOOL_CONFIG), 3000).catch(() => {});
+        // Cloud is empty, use default config locally. NO automatic Firestore write on load.
         localStorage.setItem(LOCAL_STORAGE_CONFIG_KEY, JSON.stringify(DEFAULT_SCHOOL_CONFIG));
         await setOfflineItem('school_config', DEFAULT_SCHOOL_CONFIG);
         return DEFAULT_SCHOOL_CONFIG;
@@ -324,10 +341,7 @@ export async function loadNewsArticles(): Promise<NewsArticle[]> {
         await setOfflineItem('news_articles', cloudArticles);
         return cloudArticles;
       } else {
-        // First-time cloud init: seed default news articles to Firestore
-        for (const art of DEFAULT_NEWS_ARTICLES) {
-          withTimeout(setDoc(doc(db, 'news_articles', art.id), art), 2000).catch(() => {});
-        }
+        // Cloud collection is empty, use default articles locally without automatic Firestore writes
         localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(DEFAULT_NEWS_ARTICLES));
         await setOfflineItem('news_articles', DEFAULT_NEWS_ARTICLES);
         return DEFAULT_NEWS_ARTICLES;

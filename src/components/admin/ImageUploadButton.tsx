@@ -47,7 +47,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
   const fileInputDriveRef = useRef<HTMLInputElement | null>(null);
   const fileInputLocalRef = useRef<HTMLInputElement | null>(null);
 
-  const [uploadMode, setUploadMode] = useState<'drive' | 'local'>('drive');
+  const [uploadMode, setUploadMode] = useState<'drive' | 'local'>('local');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [uploadError, setUploadError] = useState<string | null>(null);
