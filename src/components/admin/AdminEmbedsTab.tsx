@@ -50,18 +50,14 @@ export const AdminEmbedsTab: React.FC<AdminEmbedsTabProps> = ({ config, onChange
     if (!q) return;
     const newUrl = buildGoogleMapsEmbedUrl(q, 17);
     setPreviewMapUrl(newUrl);
-  };
-
-  const handleSaveMap = () => {
-    const finalUrl = previewMapUrl || buildGoogleMapsEmbedUrl(searchLocation, 17);
     onChange({
       ...config,
       embeds: {
         ...embeds,
-        mapIframeUrl: finalUrl,
+        mapIframeUrl: newUrl,
       },
     });
-    setSaveFeedback('Peta lokasi berhasil disimpan!');
+    setSaveFeedback('Pratinjau peta diperbarui.');
     setTimeout(() => setSaveFeedback(null), 3000);
   };
 
@@ -183,17 +179,9 @@ export const AdminEmbedsTab: React.FC<AdminEmbedsTabProps> = ({ config, onChange
               rel="noopener noreferrer"
               className="px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1"
             >
-              <span>Google Maps</span>
+              <span>Buka di Google Maps</span>
               <ExternalLink className="w-3 h-3 text-slate-400" />
             </a>
-            <button
-              type="button"
-              onClick={handleSaveMap}
-              className="flex-1 sm:flex-none px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
-            >
-              <Save className="w-4 h-4" />
-              <span>Simpan Peta</span>
-            </button>
           </div>
         </div>
       </div>

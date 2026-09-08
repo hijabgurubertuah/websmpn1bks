@@ -500,7 +500,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* Main Content Workspace */}
         <main className="flex-1 min-w-0 w-full">
 
-          {/* Dedicated Tab Header with Status & Save Button for Current Tab */}
+          {/* Dedicated Tab Header with Status for Current Tab (Save button is placed ONLY at the bottom) */}
           {activeTab !== 'sync' && activeTab !== 'posts' && (
             <div className="mb-6 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
@@ -526,27 +526,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
                     {unsavedTabs[activeTab]
-                      ? 'Pengaturan telah diubah. Klik tombol Simpan di samping untuk menyinkronkan tab ini ke Firebase.'
-                      : 'Pengaturan tab ini sudah tersinkron dengan cloud. Hanya link URL gambar yang disimpan agar hemat kuota.'}
+                      ? 'Pengaturan telah diubah di draf lokal. Tekan tombol Simpan di bagian bawah tab untuk menyinkronkan data ini ke Firebase.'
+                      : 'Pengaturan tab ini telah tersinkron dengan cloud database. Tombol simpan tersedia di bagian bawah tab.'}
                   </p>
                 </div>
-              </div>
-
-              <div className="shrink-0 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleSaveTab(activeTab)}
-                  disabled={savingTab}
-                  className={`w-full md:w-auto inline-flex items-center justify-center gap-2 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50 ${
-                    unsavedTabs[activeTab]
-                      ? 'bg-blue-600 hover:bg-blue-700 ring-2 ring-blue-400/70 shadow-blue-500/25'
-                      : 'bg-slate-800 hover:bg-slate-700'
-                  }`}
-                  title={`Simpan hanya pengaturan tab ${tabs.find((t) => t.id === activeTab)?.label} ke Firebase`}
-                >
-                  <Save className={`w-4 h-4 ${savingTab ? 'animate-spin' : ''}`} />
-                  <span>{savingTab ? 'Menyimpan...' : `Simpan Tab ${tabs.find((t) => t.id === activeTab)?.label}`}</span>
-                </button>
               </div>
             </div>
           )}
