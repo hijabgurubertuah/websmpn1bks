@@ -102,14 +102,6 @@ export default function App() {
     await deleteNewsArticle(articleId);
   };
 
-  // Manual save all with concurrent execution
-  const handleManualSaveAll = async () => {
-    await Promise.all([
-      saveSchoolConfig(config),
-      ...articles.map((art) => saveNewsArticle(art)),
-    ]);
-  };
-
   // Handle backup restore / reset
   const handleDataRestored = (newConfig: SchoolConfig, newArticles: NewsArticle[]) => {
     setConfig(newConfig);
@@ -136,7 +128,6 @@ export default function App() {
         onChangeConfig={handleConfigChange}
         onSaveArticle={handleSaveArticle}
         onDeleteArticle={handleDeleteArticle}
-        onManualSaveAll={handleManualSaveAll}
         onCloseAdmin={() => setIsAdminMode(false)}
         onLogout={handleLogoutAdmin}
         onDataRestored={handleDataRestored}

@@ -34,7 +34,7 @@ import { AdminPrincipalTab } from './AdminPrincipalTab';
 import { AdminEmbedsTab } from './AdminEmbedsTab';
 import { AdminFooterTab } from './AdminFooterTab';
 import { AdminSyncTab } from './AdminSyncTab';
-import { saveSchoolConfig } from '../../lib/firebase';
+import { saveSchoolTabConfig } from '../../lib/firebase';
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
 
 interface AdminDashboardProps {
@@ -43,7 +43,6 @@ interface AdminDashboardProps {
   onChangeConfig: (newConfig: SchoolConfig) => void;
   onSaveArticle: (article: NewsArticle) => Promise<void>;
   onDeleteArticle: (articleId: string) => Promise<void>;
-  onManualSaveAll: () => Promise<void>;
   onCloseAdmin: () => void;
   onLogout: () => void;
   onDataRestored: (newConfig: SchoolConfig, newArticles: NewsArticle[]) => void;
@@ -68,60 +67,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onChangeConfig,
   onSaveArticle,
   onDeleteArticle,
-  onManualSaveAll,
   onCloseAdmin,
   onLogout,
   onDataRestored,
 }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('header');
-  const [savingAll, setSavingAll] = useState(false);
   const [savingTab, setSavingTab] = useState(false);
-  const [hasUnsavedCloudChanges, setHasUnsavedCloudChanges] = useState(false);
+  const [unsavedTabs, setUnsavedTabs] = useState<Record<string, boolean>>({});
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('Perubahan Tersimpan!');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Lock body scroll when mobile sidebar drawer is open to prevent background scrolling
   useBodyScrollLock(isMobileSidebarOpen);
-
-  const handleConfigUpdate = (newConfig: SchoolConfig) => {
-    setHasUnsavedCloudChanges(true);
-    onChangeConfig(newConfig);
-  };
-
-  const handleSaveClick = async () => {
-    setSavingAll(true);
-    try {
-      await onManualSaveAll();
-      setHasUnsavedCloudChanges(false);
-      setToastMessage('Semua Konfigurasi & Berita Tersinkron ke Cloud!');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setToastMessage(`Gagal sinkron Cloud: ${msg}`);
-    }
-    setSavingAll(false);
-    setShowToast(true);
-    setTimeout(() => {
-      setShowToast(false);
-    }, 5000);
-  };
-
-  const handleSaveCurrentTab = async () => {
-    setSavingTab(true);
-    try {
-      await saveSchoolConfig(config);
-      setHasUnsavedCloudChanges(false);
-      setToastMessage(`Perubahan tab ${tabs.find((t) => t.id === activeTab)?.label} berhasil disimpan ke Cloud!`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setToastMessage(`Gagal ke Cloud: ${msg}`);
-    }
-    setSavingTab(false);
-    setShowToast(true);
-    setTimeout(() => {
-      setShowToast(false);
-    }, 5000);
-  };
 
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: 'header', label: 'Header & Identitas', icon: <Sparkles className="w-4 h-4" /> },
@@ -136,6 +94,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'footer', label: 'Footer & Kontak', icon: <Share2 className="w-4 h-4" /> },
     { id: 'sync', label: 'Firebase & Backup', icon: <Database className="w-4 h-4" /> },
   ];
+
+  const handleConfigUpdate = (newConfig: SchoolConfig) => {
+    // Mark only the active tab as having local unsaved changes
+    setUnsavedTabs((prev) => ({ ...prev, [activeTab]: true }));
+    onChangeConfig(newConfig);
+  };
+
+  const handleSaveTab = async (tabToSave: AdminTab = activeTab) => {
+    setSavingTab(true);
+    try {
+      const success = await saveSchoolTabConfig(tabToSave, config);
+      if (success) {
+        setUnsavedTabs((prev) => ({ ...prev, [tabToSave]: false }));
+        const tabName = tabs.find((t) => t.id === tabToSave)?.label || tabToSave;
+        setToastMessage(`Pengaturan "${tabName}" berhasil disinkronkan ke Firebase!`);
+      } else {
+        setToastMessage(`Pengaturan "${tabToSave}" tersimpan di lokal (koneksi ditunda).`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToastMessage(`Gagal ke Firebase: ${msg}`);
+    } finally {
+      setSavingTab(false);
+      setShowToast(true);
+      setTimeout(() => {
+        setShowToast(false);
+      }, 4000);
+    }
+  };
+
+  const unsavedCount = Object.values(unsavedTabs).filter(Boolean).length;
 
   return (
     <div id="admin-dashboard-container" className="min-h-screen bg-slate-100 flex flex-col text-slate-800">
@@ -222,32 +211,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <span>Pratinjau Live</span>
               </button>
 
-              {hasUnsavedCloudChanges ? (
-                <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              {unsavedCount > 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  <span>Draf Lokal (Belum Disimpan)</span>
+                  <span>{unsavedCount} Tab Belum Disinkron</span>
                 </span>
               ) : (
-                <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Tersimpan di Cloud</span>
+                  <span>Semua Tab Tersinkron</span>
                 </span>
               )}
-
-              <button
-                type="button"
-                onClick={handleSaveClick}
-                disabled={savingAll}
-                className={`inline-flex items-center gap-2 text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer ${
-                  hasUnsavedCloudChanges
-                    ? 'bg-blue-600 hover:bg-blue-500 ring-2 ring-blue-400/70 shadow-blue-500/30'
-                    : 'bg-blue-600 hover:bg-blue-500 disabled:opacity-50'
-                }`}
-                title="Tulis dan simpan seluruh data ke database Firebase Firestore"
-              >
-                <Save className={`w-4 h-4 ${savingAll ? 'animate-spin' : ''}`} />
-                <span>{savingAll ? 'Menyimpan...' : 'Simpan ke Cloud'}</span>
-              </button>
 
               <button
                 type="button"
@@ -326,6 +300,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
+            const isUnsaved = Boolean(unsavedTabs[tab.id]);
             return (
               <button
                 key={tab.id}
@@ -340,43 +315,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <span
-                    className={`p-1.5 rounded-lg ${
+                    className={`p-1.5 rounded-lg shrink-0 ${
                       isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
                     }`}
                   >
                     {tab.icon}
                   </span>
-                  <span>{tab.label}</span>
+                  <span className="truncate">{tab.label}</span>
                 </div>
 
-                {isActive ? (
-                  <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" />
-                )}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {tab.id !== 'sync' && tab.id !== 'posts' && (
+                    isUnsaved ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        Lokal
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-0.5">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Cloud</span>
+                      </span>
+                    )
+                  )}
+                  {isActive ? (
+                    <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-slate-600 shrink-0" />
+                  )}
+                </div>
               </button>
             );
           })}
         </div>
 
         {/* Drawer Footer Actions */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/60 space-y-2">
-          <button
-            type="button"
-            onClick={() => {
-              setIsMobileSidebarOpen(false);
-              handleSaveClick();
-            }}
-            disabled={savingAll}
-            className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 rounded-xl shadow-md cursor-pointer disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            <span>{savingAll ? 'Menyimpan...' : 'Simpan Semua Perubahan'}</span>
-          </button>
+        <div className="p-4 border-t border-slate-800 bg-slate-950/60 space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-400">Status Penyimpanan:</span>
+            {unsavedCount > 0 ? (
+              <span className="font-bold text-amber-400 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                {unsavedCount} Tab Draf Lokal
+              </span>
+            ) : (
+              <span className="font-bold text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Semua Tab Tersinkron
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            Setiap tab memiliki tombol simpan tersendiri agar pengunggahan lebih cepat dan hemat kuota.
+          </p>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pt-1">
             <button
               type="button"
               onClick={() => {
@@ -421,6 +416,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
+              const isUnsaved = Boolean(unsavedTabs[tab.id]);
               return (
                 <button
                   key={tab.id}
@@ -432,16 +428,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <span className={isActive ? 'text-white' : 'text-slate-500'}>
                       {tab.icon}
                     </span>
-                    <span>{tab.label}</span>
+                    <span className="truncate">{tab.label}</span>
                   </div>
 
-                  {isActive && (
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {tab.id !== 'sync' && tab.id !== 'posts' && (
+                      isUnsaved ? (
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                            isActive
+                              ? 'bg-amber-400 text-amber-950'
+                              : 'bg-amber-100 text-amber-800 border border-amber-300'
+                          }`}
+                          title="Hanya tersimpan di lokal (belum disinkronkan ke Firebase)"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                          Lokal
+                        </span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center text-[10px] font-semibold ${
+                            isActive ? 'text-blue-100' : 'text-emerald-600'
+                          }`}
+                          title="Tersinkron dengan Firebase"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span className="hidden xl:inline ml-1">Cloud</span>
+                        </span>
+                      )
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -451,15 +471,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-xs space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Status Sistem CMS</span>
+              <span>Status Sinkronisasi Tab</span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Perubahan otomatis tersimpan ke cache offline &amp; database Firebase Firestore.
+              {unsavedCount > 0
+                ? `${unsavedCount} tab memiliki perubahan lokal yang belum diunggah ke Firebase.`
+                : 'Semua tab konfigurasi telah tersinkron dengan database Firebase.'}
             </p>
             <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Sekolah:</span>
-              <span className="font-semibold text-slate-200 truncate max-w-[130px]" title={config.identity.name}>
-                {config.identity.name}
+              <span>Status:</span>
+              <span className={`font-semibold ${unsavedCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                {unsavedCount > 0 ? 'Ada Draf Lokal' : 'Tersinkron Penuh'}
               </span>
             </div>
           </div>
@@ -493,6 +515,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               Ganti Tab →
             </button>
           </div>
+
+          {/* Dedicated Tab Header with Status & Save Button for Current Tab */}
+          {activeTab !== 'sync' && activeTab !== 'posts' && (
+            <div className="mb-6 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                  {tabs.find((t) => t.id === activeTab)?.icon}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                      {tabs.find((t) => t.id === activeTab)?.label}
+                    </h3>
+                    {unsavedTabs[activeTab] ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                        Draf Lokal (Belum Disinkron ke Firebase)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Tersinkron ke Firebase
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {unsavedTabs[activeTab]
+                      ? 'Pengaturan telah diubah. Klik tombol Simpan di samping untuk menyinkronkan tab ini ke Firebase.'
+                      : 'Pengaturan tab ini sudah tersinkron dengan cloud. Hanya link URL gambar yang disimpan agar hemat kuota.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="shrink-0 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveTab(activeTab)}
+                  disabled={savingTab}
+                  className={`w-full md:w-auto inline-flex items-center justify-center gap-2 text-white text-xs sm:text-sm font-bold px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50 ${
+                    unsavedTabs[activeTab]
+                      ? 'bg-blue-600 hover:bg-blue-700 ring-2 ring-blue-400/70 shadow-blue-500/25'
+                      : 'bg-slate-800 hover:bg-slate-700'
+                  }`}
+                  title={`Simpan hanya pengaturan tab ${tabs.find((t) => t.id === activeTab)?.label} ke Firebase`}
+                >
+                  <Save className={`w-4 h-4 ${savingTab ? 'animate-spin' : ''}`} />
+                  <span>{savingTab ? 'Menyimpan...' : `Simpan Tab ${tabs.find((t) => t.id === activeTab)?.label}`}</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Dynamic Tab Views */}
           {activeTab === 'header' && (
@@ -544,7 +617,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               config={config}
               articles={articles}
               onChangeConfig={handleConfigUpdate}
-              onManualSave={handleSaveClick}
               onDataRestored={onDataRestored}
             />
           )}
@@ -557,22 +629,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <Save className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                    Simpan Perubahan Tab {tabs.find((t) => t.id === activeTab)?.label}
-                  </h4>
-                  <p className="text-[11px] text-slate-500">
-                    Penulisan ke Firebase hanya dilakukan saat tombol ditekan untuk menghemat kuota limit database.
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                      Simpan Perubahan Tab {tabs.find((t) => t.id === activeTab)?.label}
+                    </h4>
+                    {unsavedTabs[activeTab] ? (
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                        Belum Disinkron
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                        Tersinkron
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Hanya mengunggah data tab ini ke Firebase Firestore (~100ms) tanpa menyentuh pengaturan tab lain. Hanya tautan/link URL gambar yang disimpan.
                   </p>
                 </div>
               </div>
 
               <button
                 type="button"
-                onClick={handleSaveCurrentTab}
+                onClick={() => handleSaveTab(activeTab)}
                 disabled={savingTab}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all text-xs sm:text-sm cursor-pointer disabled:opacity-50"
               >
-                <Save className="w-4 h-4" />
+                <Save className={`w-4 h-4 ${savingTab ? 'animate-spin' : ''}`} />
                 <span>{savingTab ? 'Menyimpan...' : `Simpan Tab ${tabs.find((t) => t.id === activeTab)?.label}`}</span>
               </button>
             </div>

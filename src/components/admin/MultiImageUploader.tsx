@@ -5,11 +5,14 @@ import {
   RefreshCw,
   HardDrive,
   Link as LinkIcon,
+  AlertCircle,
 } from 'lucide-react';
+import { convertGoogleDriveUrl } from '../../lib/imageOptimizer';
 import {
-  compressAndResizeImage,
-  convertGoogleDriveUrl,
-} from '../../lib/imageOptimizer';
+  uploadImageToDrive,
+  getDriveAccessToken,
+  signInWithGoogleDrive,
+} from '../../lib/googleDrive';
 
 interface MultiImageUploaderProps {
   label?: string;
@@ -30,8 +33,9 @@ export const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
   const [singleUrlInput, setSingleUrlInput] = useState('');
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [uploaderNotice, setUploaderNotice] = useState<string | null>(null);
 
-  // Process multiple files
+  // Process multiple files - strictly upload to Google Drive so only link URLs are saved to Firebase
   const handleFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter((f) => f.type.startsWith('image/'));
     if (fileArray.length === 0) return;
@@ -44,25 +48,46 @@ export const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
     if (filesToProcess.length === 0) return;
 
     setIsProcessing(true);
-    const newImages: string[] = [];
+    setUploaderNotice(null);
 
-    for (let i = 0; i < filesToProcess.length; i++) {
-      const file = filesToProcess[i];
-      setProgressText(`Memproses ${i + 1}/${filesToProcess.length}...`);
+    // Check Google Drive auth token
+    let token = getDriveAccessToken();
+    if (!token) {
       try {
-        const result = await compressAndResizeImage(file, {
-          maxWidth: 1200,
-          maxHeight: 800,
-          quality: 0.8,
-          format: 'image/webp',
-        });
-        newImages.push(result.dataUrl);
-      } catch (err) {
-        console.error('Failed to compress image:', err);
+        setProgressText('Membuka login Google Drive...');
+        const authData = await signInWithGoogleDrive();
+        if (!authData) {
+          setIsProcessing(false);
+          setProgressText('');
+          setShowUrlInput(true);
+          setUploaderNotice('Harap login Google Drive atau masukkan tautan (link URL) gambar.');
+          return;
+        }
+        token = authData.accessToken;
+      } catch {
+        setIsProcessing(false);
+        setProgressText('');
+        setShowUrlInput(true);
+        setUploaderNotice('Hanya tautan (link URL) gambar yang disimpan ke Firebase. Silakan tempel tautan URL gambar.');
+        return;
       }
     }
 
-    onChange([...images, ...newImages]);
+    const newImageUrls: string[] = [];
+
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i];
+      setProgressText(`Mengunggah ke Drive ${i + 1}/${filesToProcess.length}: ${file.name}...`);
+      try {
+        const uploadResult = await uploadImageToDrive(file, file.name);
+        newImageUrls.push(uploadResult.cdnUrl);
+      } catch (err) {
+        console.error('Failed to upload image to Drive:', err);
+      }
+    }
+
+    // Only store URL links
+    onChange([...images.filter((img) => !img.startsWith('data:')), ...newImageUrls]);
     setIsProcessing(false);
     setProgressText('');
   };
@@ -189,10 +214,17 @@ export const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
           <div className="flex items-center gap-2 text-xs text-slate-700">
             <Upload className="w-4 h-4 text-blue-600" />
             <span className="font-bold">Pilih Banyak Foto Sekaligus</span>
-            <span className="text-slate-400 text-[11px]">atau seret ke sini</span>
+            <span className="text-slate-400 text-[11px]">atau seret ke sini (Hanya Tautan URL)</span>
           </div>
         )}
       </div>
+
+      {uploaderNotice && (
+        <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-800">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <span>{uploaderNotice}</span>
+        </div>
+      )}
 
       {/* Thumbnails grid */}
       {images.length > 0 && (

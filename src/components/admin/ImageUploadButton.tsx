@@ -126,7 +126,9 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
   };
 
   /**
-   * Handle Local Browser Compression (Base64/Data URL)
+   * Handle Local File Selection
+   * Enforces user requirement: NO binary or base64 images uploaded to Firebase, ONLY link URLs.
+   * Uploads file to Google Drive to obtain a public CDN link.
    */
   const handleLocalFile = async (file: File) => {
     if (!file || !file.type.startsWith('image/')) {
@@ -134,28 +136,12 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
       return;
     }
 
-    setIsProcessing(true);
-    setUploadError(null);
-    setSuccessInfo(null);
-    setProcessingStatus('Mengompresi gambar...');
-
+    // Automatically route to Google Drive to obtain a lightweight CDN URL link
     try {
-      const result = await compressAndResizeImage(file, getPresetOptions());
-      if (result.compressedSize > 900 * 1024) {
-        setUploadError(`Gagal: Ukuran file (${formatFileSize(result.compressedSize)}) melebihi batas 1MB Firestore. Gunakan Google Drive atau gambar yang lebih kecil.`);
-        return;
-      }
-      onChange(result.dataUrl);
-      if (result.compressedSize > 500 * 1024) {
-        setSuccessInfo(`Kompresi berhasil (${formatFileSize(result.compressedSize)}). Peringatan: Ukuran cukup besar untuk 1 dokumen Firestore, disarankan pakai Google Drive.`);
-      } else {
-        setSuccessInfo(`Kompresi berhasil (${formatFileSize(result.compressedSize)}, hemat ${result.reductionPercentage}%) - Aman untuk Cloud!`);
-      }
-    } catch (err) {
-      setUploadError('Gagal mengompres gambar: ' + String(err));
-    } finally {
-      setIsProcessing(false);
-      setProcessingStatus('');
+      await handleDriveUpload(file);
+    } catch {
+      setUploadError('Firebase hanya menyimpan tautan (link URL) gambar. Silakan login ke Google Drive untuk unggah otomatis, atau tempel tautan URL gambar.');
+      setShowUrlInput(true);
     }
   };
 

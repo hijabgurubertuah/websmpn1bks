@@ -115,6 +115,33 @@ export async function checkFirebaseConnection(): Promise<{
 }
 
 /**
+ * Recursively sanitizes data to ensure NO raw base64 image data (data:image/...) is ever uploaded to Firebase.
+ * Only external/cloud link URLs (https://, http://, //) are permitted.
+ * If a base64 string is detected, it is stripped so Firebase never receives image binaries.
+ */
+export function sanitizeNoBase64<T>(data: T): T {
+  if (!data) return data;
+  if (typeof data === 'string') {
+    if (data.startsWith('data:image/')) {
+      console.warn('Deteksi data base64 gambar dicegah. Hanya link URL gambar yang diunggah ke Firebase.');
+      return '' as unknown as T;
+    }
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeNoBase64(item)) as unknown as T;
+  }
+  if (typeof data === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      cleaned[key] = sanitizeNoBase64(value);
+    }
+    return cleaned as T;
+  }
+  return data;
+}
+
+/**
  * Save configuration purely to local browser storage (IndexedDB & localStorage).
  * STRICTLY ZERO writes to Firebase Firestore to prevent consuming database write quotas during typing/editing.
  */
@@ -124,6 +151,92 @@ export async function saveLocalDraftConfig(config: SchoolConfig): Promise<void> 
     await setOfflineItem('school_config', config);
   } catch (e) {
     console.error('Error saving school config locally', e);
+  }
+}
+
+/**
+ * Save ONLY the specific tab data that was edited to Firebase Firestore.
+ * Ultra-lightweight payload (saving only the changed fields), ensuring fast network sync,
+ * preventing database limit exhaustion, and strictly ensuring only image URL links are sent.
+ */
+export async function saveSchoolTabConfig(tab: string, config: SchoolConfig): Promise<boolean> {
+  // Always update local cache first so drafts are preserved instantly
+  await saveLocalDraftConfig(config);
+
+  if (!db || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+    return true; // Saved locally
+  }
+
+  // Determine the granular payload for only this specific tab
+  let tabPayload: Record<string, unknown> = {};
+
+  switch (tab) {
+    case 'header':
+      tabPayload = {
+        header: config.header,
+        identity: config.identity,
+      };
+      break;
+    case 'menus':
+      tabPayload = {
+        navMenus: config.navMenus,
+      };
+      break;
+    case 'ppdb':
+      tabPayload = {
+        ppdb: config.ppdb,
+      };
+      break;
+    case 'agenda':
+      tabPayload = {
+        agendas: config.agendas,
+      };
+      break;
+    case 'facilities':
+      tabPayload = {
+        facilities: config.facilities,
+        extracurriculars: config.extracurriculars,
+      };
+      break;
+    case 'layout':
+      tabPayload = {
+        layoutSections: config.layoutSections,
+      };
+      break;
+    case 'principal':
+      tabPayload = {
+        principal: config.principal,
+      };
+      break;
+    case 'embeds':
+      tabPayload = {
+        embeds: config.embeds,
+      };
+      break;
+    case 'footer':
+      tabPayload = {
+        footer: config.footer,
+      };
+      break;
+    default:
+      tabPayload = config as unknown as Record<string, unknown>;
+  }
+
+  // Ensure absolutely NO base64 image strings exist in the cloud payload (only link URLs allowed)
+  const cleanedPayload = sanitizeNoBase64(tabPayload);
+
+  try {
+    const configDocRef = doc(db, 'school_portal', 'main_config');
+    await withTimeout(setDoc(configDocRef, cleanedPayload, { merge: true }), 4000);
+    return true;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('resource-exhausted') || msg.includes('Quota')) {
+      console.warn('Kuota harian Firestore tercapai (Free Tier). Data tersimpan aman di penyimpanan lokal browser Anda.');
+      return true;
+    }
+    console.info(`Tab ${tab} tersimpan secara lokal (sinkronisasi cloud ditunda):`, msg);
+    return false;
   }
 }
 
@@ -138,12 +251,13 @@ export async function saveSchoolConfig(config: SchoolConfig): Promise<boolean> {
   // Sync to Firebase Firestore (single document to save write quota and prevent rate limits)
   if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
-      const jsonString = JSON.stringify(config);
+      const cleanedConfig = sanitizeNoBase64(config);
+      const jsonString = JSON.stringify(cleanedConfig);
       if (jsonString.length > 950 * 1024) {
         throw new Error('Ukuran data konfigurasi melebihi batas 1MB Firestore. Harap gunakan URL gambar eksternal (Google Drive / link publik) untuk foto kepala sekolah atau logo.');
       }
       const configDocRef = doc(db, 'school_portal', 'main_config');
-      await withTimeout(setDoc(configDocRef, config, { merge: true }), 4000);
+      await withTimeout(setDoc(configDocRef, cleanedConfig, { merge: true }), 4000);
       return true;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -242,11 +356,12 @@ export async function saveNewsArticle(article: NewsArticle): Promise<boolean> {
     console.error('Error saving article locally', e);
   }
 
-  // Firestore sync
+  // Firestore sync - ensure strictly NO base64 images (only URL links)
   if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
+      const cleanedArticle = sanitizeNoBase64(article);
       const articleDoc = doc(db, 'news_articles', article.id);
-      await withTimeout(setDoc(articleDoc, article, { merge: true }), 3500);
+      await withTimeout(setDoc(articleDoc, cleanedArticle, { merge: true }), 3500);
       return true;
     } catch (err) {
       console.info('Firestore article sync deferred, saved locally:', err);
