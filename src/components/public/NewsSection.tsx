@@ -35,7 +35,7 @@ export const NewsSection: React.FC<NewsSectionProps> = ({ articles }) => {
   // Filter articles
   const filteredArticles = useMemo(() => {
     return articles
-      .filter((a) => a.status === 'published')
+      .filter((a) => a.status === 'published' && !a.isLocalDraft)
       .filter((a) => {
         if (selectedCategory === 'Semua') return true;
         return a.category.toLowerCase() === selectedCategory.toLowerCase();

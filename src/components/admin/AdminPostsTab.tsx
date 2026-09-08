@@ -22,6 +22,8 @@ import {
   Globe,
   Sparkles,
   Maximize2,
+  HardDrive,
+  CloudUpload,
 } from 'lucide-react';
 import { ImageUploadButton } from './ImageUploadButton';
 import { MultiImageUploader } from './MultiImageUploader';
@@ -31,15 +33,18 @@ import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
 interface AdminPostsTabProps {
   articles: NewsArticle[];
   onSaveArticle: (article: NewsArticle) => Promise<void>;
+  onSaveArticleLocally?: (article: NewsArticle) => Promise<void>;
   onDeleteArticle: (articleId: string) => Promise<void>;
 }
 
 export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
   articles,
   onSaveArticle,
+  onSaveArticleLocally,
   onDeleteArticle,
 }) => {
   const [search, setSearch] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'drafts' | 'cloud'>('all');
   const [isEditing, setIsEditing] = useState(false);
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
 
@@ -54,6 +59,7 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
   const [isPinned, setIsPinned] = useState(false);
   const [status, setStatus] = useState<'published' | 'draft'>('published');
   const [saving, setSaving] = useState(false);
+  const [savingLocal, setSavingLocal] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   // Multi-image, link, & embed states
@@ -123,6 +129,73 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
     setIsEditing(true);
   };
 
+  // Save to Local Draft only (0 Firebase write operations)
+  const handleSaveLocal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setFormError('Judul berita tidak boleh kosong.');
+      return;
+    }
+    if (!content.trim()) {
+      setFormError('Konten lengkap berita tidak boleh kosong.');
+      return;
+    }
+
+    setFormError(null);
+    setSavingLocal(true);
+    const localArticle: NewsArticle = {
+      id: editingArticleId || `news-${Date.now()}`,
+      title: title.trim(),
+      slug: title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, ''),
+      category,
+      summary: summary.trim(),
+      content: content.trim(),
+      coverImage:
+        coverImage.trim() ||
+        'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&auto=format&fit=crop&q=80',
+      author: author.trim() || 'Humas Sekolah',
+      date: date.trim() || '06 September 2026',
+      isPinned,
+      views: editingArticleId ? articles.find((a) => a.id === editingArticleId)?.views || 10 : 1,
+      status,
+      galleryImages: galleryImages.filter(Boolean),
+      actionLink: actionLinkUrl.trim()
+        ? {
+            label: actionLinkLabel.trim() || 'Kunjungi Tautan Terkait',
+            url: actionLinkUrl.trim(),
+          }
+        : undefined,
+      embedUrl: embedUrl.trim() || undefined,
+      embedTitle: embedTitle.trim() || undefined,
+      isLocalDraft: true,
+    };
+
+    try {
+      if (onSaveArticleLocally) {
+        await onSaveArticleLocally(localArticle);
+      } else {
+        await onSaveArticle(localArticle);
+      }
+      resetForm();
+      setFeedbackToast({
+        type: 'success',
+        message: 'Tersimpan di DRAF LOKAL (0 kuota Firebase terpakai). Anda bisa mengeditnya kapan saja di perangkat ini.',
+      });
+      setTimeout(() => setFeedbackToast(null), 5000);
+    } catch (err) {
+      setFeedbackToast({
+        type: 'error',
+        message: 'Gagal menyimpan draf lokal: ' + String(err),
+      });
+    } finally {
+      setSavingLocal(false);
+    }
+  };
+
+  // Save and Upload directly to Cloud Firebase
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -163,6 +236,7 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
         : undefined,
       embedUrl: embedUrl.trim() || undefined,
       embedTitle: embedTitle.trim() || undefined,
+      isLocalDraft: false,
     };
 
     await onSaveArticle(newArticle);
@@ -170,9 +244,32 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
     resetForm();
     setFeedbackToast({
       type: 'success',
-      message: editingArticleId ? 'Perubahan berita berhasil disimpan.' : 'Berita baru berhasil diterbitkan.',
+      message: editingArticleId ? 'Perubahan berita berhasil disimpan dan diunggah ke Cloud Firestore.' : 'Berita baru berhasil diterbitkan dan diunggah ke Cloud Firestore.',
     });
     setTimeout(() => setFeedbackToast(null), 4000);
+  };
+
+  // Quick 1-click upload from table for any local draft
+  const handleQuickUploadToCloud = async (art: NewsArticle) => {
+    setSaving(true);
+    try {
+      await onSaveArticle({
+        ...art,
+        isLocalDraft: false,
+      });
+      setFeedbackToast({
+        type: 'success',
+        message: `Draf "${art.title}" berhasil diunggah dan disinkronkan ke Cloud Firebase!`,
+      });
+      setTimeout(() => setFeedbackToast(null), 4000);
+    } catch (err) {
+      setFeedbackToast({
+        type: 'error',
+        message: 'Gagal mengunggah ke Cloud: ' + String(err),
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -213,12 +310,24 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
     { label: 'Seni Musik & Choir', url: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=800&auto=format&fit=crop&q=80' },
   ];
 
-  const filtered = articles.filter(
-    (a) =>
-      a.title.toLowerCase().includes(search.toLowerCase()) ||
-      a.category.toLowerCase().includes(search.toLowerCase()) ||
-      a.author.toLowerCase().includes(search.toLowerCase())
-  );
+  const localDrafts = articles.filter((a) => Boolean(a.isLocalDraft));
+  const cloudArticles = articles.filter((a) => !a.isLocalDraft);
+
+  const filtered = articles
+    .filter((a) => {
+      if (filterTab === 'drafts') return Boolean(a.isLocalDraft);
+      if (filterTab === 'cloud') return !a.isLocalDraft;
+      return true;
+    })
+    .filter(
+      (a) =>
+        a.title.toLowerCase().includes(search.toLowerCase()) ||
+        a.category.toLowerCase().includes(search.toLowerCase()) ||
+        a.author.toLowerCase().includes(search.toLowerCase())
+    );
+
+  const currentEditingArt = editingArticleId ? articles.find((a) => a.id === editingArticleId) : null;
+  const isCurrentDraftLocal = currentEditingArt ? Boolean(currentEditingArt.isLocalDraft) : false;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
@@ -253,12 +362,24 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
       {/* Top Header Card */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600" />
-            <span>Manajemen Postingan &amp; Berita Sekolah (CMS)</span>
-          </h3>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <span>Manajemen Postingan &amp; Berita Sekolah</span>
+            </h3>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              Tersinkron ke Cloud (Firebase)
+            </span>
+            {localDrafts.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                <HardDrive className="w-3.5 h-3.5 text-amber-600" />
+                {localDrafts.length} Draf di Perangkat Ini
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500 mt-1">
-            Unggah berita baru, perbarui artikel, atur pin unggulan, dan pantau status terbit.
+            Gunakan opsi <strong className="text-amber-700">Simpan Draf Lokal</strong> untuk menulis dan mengedit berita kapan saja di perangkat ini tanpa menghabiskan kuota Firebase. Kuota Firebase hanya terpakai jika Anda menekan <strong className="text-blue-700">Simpan/Terbitkan ke Cloud</strong>.
           </p>
         </div>
 
@@ -279,12 +400,27 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
         <div className="bg-white rounded-2xl p-6 sm:p-8 border-2 border-blue-600 shadow-lg space-y-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div>
-              <h4 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-blue-600" />
-                <span>{editingArticleId ? 'Edit Postingan Berita' : 'Tulis Postingan Berita Baru'}</span>
-              </h4>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h4 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <Edit2 className="w-4 h-4 text-blue-600" />
+                  <span>{editingArticleId ? 'Edit Postingan Berita' : 'Tulis Postingan Berita Baru'}</span>
+                </h4>
+                {editingArticleId && (
+                  isCurrentDraftLocal ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                      <HardDrive className="w-3 h-3 text-amber-600" />
+                      Status: Draf Lokal (Belum di Cloud)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      Status: Tersimpan di Cloud
+                    </span>
+                  )
+                )}
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Pastikan informasi akurat sebelum menerbitkan ke halaman publik.
+                Pilih <strong className="text-amber-700">"Simpan ke Draf Lokal"</strong> (0 kuota Firebase) untuk diedit kapan saja di perangkat ini, atau <strong className="text-blue-700">"Simpan &amp; Unggah ke Cloud"</strong> untuk menerbitkan ke database online.
               </p>
             </div>
             <button
@@ -627,7 +763,7 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100">
                 {editingArticleId && (
                   <button
                     type="button"
@@ -641,21 +777,40 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
                     <span>Hapus Berita Ini</span>
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-300 bg-white rounded-lg cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm hover:shadow cursor-pointer flex items-center gap-2 disabled:opacity-50"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>{saving ? 'Menyimpan ke Cloud...' : 'Simpan & Terbitkan ke Cloud (Postingan Ini Saja)'}</span>
-                </button>
+                <div className="flex items-center gap-2.5 ml-auto flex-wrap">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-300 bg-white rounded-xl cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveLocal}
+                    disabled={saving || savingLocal}
+                    className="px-4 py-2.5 text-xs font-bold text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 shadow-2xs"
+                    title="Simpan hanya di perangkat ini tanpa koneksi Firebase (0 kuota Firebase terpakai)"
+                  >
+                    <HardDrive className={`w-4 h-4 text-amber-700 ${savingLocal ? 'animate-pulse' : ''}`} />
+                    <span>{savingLocal ? 'Menyimpan Draf...' : 'Simpan ke Draf Lokal'}</span>
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving || savingLocal}
+                    className="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm hover:shadow cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                    title="Kirim dan simpan permanen ke Firebase Cloud Firestore"
+                  >
+                    <CloudUpload className={`w-4 h-4 ${saving ? 'animate-bounce' : ''}`} />
+                    <span>
+                      {saving
+                        ? 'Menyimpan ke Cloud...'
+                        : editingArticleId
+                        ? 'Simpan & Unggah ke Cloud'
+                        : 'Terbitkan & Unggah ke Cloud'}
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
           </form>
@@ -665,9 +820,57 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
       {/* Articles Table & Search */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Daftar Berita Terdaftar ({articles.length})
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
+              Daftar Berita ({articles.length})
+            </span>
+            <div className="inline-flex p-1 bg-slate-100 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setFilterTab('all')}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  filterTab === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Semua ({articles.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTab('drafts')}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filterTab === 'drafts'
+                    ? 'bg-amber-400 text-amber-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>Draf Lokal</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                    filterTab === 'drafts'
+                      ? 'bg-amber-950/20 text-amber-950'
+                      : localDrafts.length > 0
+                      ? 'bg-amber-200 text-amber-800'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {localDrafts.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTab('cloud')}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filterTab === 'cloud'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>Cloud ({cloudArticles.length})</span>
+              </button>
+            </div>
+          </div>
 
           <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -689,7 +892,7 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
                 <th className="py-3 px-3">Kategori</th>
                 <th className="py-3 px-3">Penulis</th>
                 <th className="py-3 px-3">Tanggal</th>
-                <th className="py-3 px-3">Status</th>
+                <th className="py-3 px-3">Status Simpan</th>
                 <th className="py-3 px-3 text-right">Aksi</th>
               </tr>
             </thead>
@@ -749,20 +952,46 @@ export const AdminPostsTab: React.FC<AdminPostsTabProps> = ({
                   </td>
 
                   <td className="py-3.5 px-3 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`inline-block w-2 h-2 rounded-full ${
-                          art.status === 'published' ? 'bg-emerald-500' : 'bg-slate-400'
-                        }`}
-                      />
-                      <span className="text-xs font-medium text-slate-700 capitalize">
-                        {art.status}
-                      </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full ${
+                            art.status === 'published' ? 'bg-emerald-500' : 'bg-slate-400'
+                          }`}
+                        />
+                        <span className="text-xs font-medium text-slate-700 capitalize">
+                          {art.status}
+                        </span>
+                      </div>
+                      {art.isLocalDraft ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                          <HardDrive className="w-2.5 h-2.5 text-amber-600" />
+                          Draf Lokal
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                          Cloud
+                        </span>
+                      )}
                     </div>
                   </td>
 
                   <td className="py-3.5 px-3 text-right whitespace-nowrap">
                     <div className="inline-flex items-center gap-1">
+                      {art.isLocalDraft && (
+                        <button
+                          type="button"
+                          onClick={() => handleQuickUploadToCloud(art)}
+                          disabled={saving}
+                          title="Unggah draf lokal ini ke Firebase Cloud sekarang"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-all cursor-pointer mr-1 disabled:opacity-50"
+                        >
+                          <CloudUpload className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Unggah Cloud</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => handleTogglePin(art)}

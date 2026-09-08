@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Upload,
   Trash2,
@@ -6,13 +6,13 @@ import {
   HardDrive,
   Link as LinkIcon,
   AlertCircle,
+  Zap,
 } from 'lucide-react';
 import { convertGoogleDriveUrl } from '../../lib/imageOptimizer';
 import {
-  uploadImageToDrive,
-  getDriveAccessToken,
-  signInWithGoogleDrive,
-} from '../../lib/googleDrive';
+  uploadFileViaAppsScript,
+  getStoredAppsScriptConfig,
+} from '../../lib/googleAppsScript';
 
 interface MultiImageUploaderProps {
   label?: string;
@@ -35,7 +35,14 @@ export const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [uploaderNotice, setUploaderNotice] = useState<string | null>(null);
 
-  // Process multiple files - strictly upload to Google Drive so only link URLs are saved to Firebase
+  const [gasConfig, setGasConfig] = useState(getStoredAppsScriptConfig());
+  const isGasAvailable = Boolean(gasConfig?.webAppUrl && gasConfig.webAppUrl.trim().length > 15 && gasConfig.enabled !== false);
+
+  useEffect(() => {
+    setGasConfig(getStoredAppsScriptConfig());
+  }, []);
+
+  // Process multiple files - uploads to Google Drive via Apps Script
   const handleFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter((f) => f.type.startsWith('image/'));
     if (fileArray.length === 0) return;
@@ -47,47 +54,41 @@ export const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
     const filesToProcess = fileArray.slice(0, maxImages - images.length);
     if (filesToProcess.length === 0) return;
 
+    const currentConfig = getStoredAppsScriptConfig();
+    if (!currentConfig || !currentConfig.webAppUrl) {
+      setUploaderNotice(
+        'Google Apps Script belum dikonfigurasi. Silakan buka tab "Google Drive & Sheets" di Admin untuk setup, atau tempel tautan gambar manual di tombol "Tambah Link".'
+      );
+      setShowUrlInput(true);
+      return;
+    }
+
     setIsProcessing(true);
     setUploaderNotice(null);
-
-    // Check Google Drive auth token
-    let token = getDriveAccessToken();
-    if (!token) {
-      try {
-        setProgressText('Membuka login Google Drive...');
-        const authData = await signInWithGoogleDrive();
-        if (!authData) {
-          setIsProcessing(false);
-          setProgressText('');
-          setShowUrlInput(true);
-          setUploaderNotice('Harap login Google Drive atau masukkan tautan (link URL) gambar.');
-          return;
-        }
-        token = authData.accessToken;
-      } catch {
-        setIsProcessing(false);
-        setProgressText('');
-        setShowUrlInput(true);
-        setUploaderNotice('Hanya tautan (link URL) gambar yang disimpan ke Firebase. Silakan tempel tautan URL gambar.');
-        return;
-      }
-    }
 
     const newImageUrls: string[] = [];
 
     for (let i = 0; i < filesToProcess.length; i++) {
       const file = filesToProcess[i];
-      setProgressText(`Mengunggah ke Drive ${i + 1}/${filesToProcess.length}: ${file.name}...`);
+      setProgressText(`Mengunggah ke Drive via Apps Script (${i + 1}/${filesToProcess.length}): ${file.name}...`);
       try {
-        const uploadResult = await uploadImageToDrive(file, file.name);
-        newImageUrls.push(uploadResult.cdnUrl);
-      } catch (err) {
-        console.error('Failed to upload image to Drive:', err);
+        const uploadResult = await uploadFileViaAppsScript(file, {
+          webAppUrl: currentConfig.webAppUrl,
+          folderId: currentConfig.folderId,
+          spreadsheetId: currentConfig.spreadsheetId,
+        });
+        newImageUrls.push(uploadResult.fileUrl);
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error('Failed to upload image to Drive via Apps Script:', err);
+        setUploaderNotice(`Gagal mengunggah ${file.name}: ${errorMsg}`);
       }
     }
 
-    // Only store URL links
-    onChange([...images.filter((img) => !img.startsWith('data:')), ...newImageUrls]);
+    if (newImageUrls.length > 0) {
+      onChange([...images, ...newImageUrls]);
+    }
+
     setIsProcessing(false);
     setProgressText('');
   };
@@ -117,6 +118,12 @@ export const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
           <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
             {images.length}/{maxImages}
           </span>
+          {isGasAvailable && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+              <Zap className="w-2.5 h-2.5" />
+              Apps Script Aktif
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -214,7 +221,7 @@ export const MultiImageUploader: React.FC<MultiImageUploaderProps> = ({
           <div className="flex items-center gap-2 text-xs text-slate-700">
             <Upload className="w-4 h-4 text-blue-600" />
             <span className="font-bold">Pilih Banyak Foto Sekaligus</span>
-            <span className="text-slate-400 text-[11px]">atau seret ke sini (Hanya Tautan URL)</span>
+            <span className="text-slate-400 text-[11px]">(Langsung ke Drive via Apps Script)</span>
           </div>
         )}
       </div>

@@ -336,19 +336,52 @@ export async function loadSchoolConfig(): Promise<SchoolConfig> {
 }
 
 /**
- * Save or update a single news article
+ * Save an article ONLY locally on this device as a draft (0 Firebase operations, 0 quota used)
  */
-export async function saveNewsArticle(article: NewsArticle): Promise<boolean> {
-  // Update local cache first
+export async function saveNewsArticleLocally(article: NewsArticle): Promise<boolean> {
+  const localArticle: NewsArticle = {
+    ...article,
+    isLocalDraft: true,
+  };
   try {
     const articles = await loadNewsArticles();
-    const existingIndex = articles.findIndex((a) => a.id === article.id);
+    const existingIndex = articles.findIndex((a) => a.id === localArticle.id);
     let updated: NewsArticle[];
     if (existingIndex >= 0) {
       updated = [...articles];
-      updated[existingIndex] = article;
+      updated[existingIndex] = localArticle;
     } else {
-      updated = [article, ...articles];
+      updated = [localArticle, ...articles];
+    }
+    localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(updated));
+    await setOfflineItem('news_articles', updated);
+    return true;
+  } catch (e) {
+    console.error('Error saving article locally', e);
+    return false;
+  }
+}
+
+/**
+ * Save or update a single news article to Cloud Firestore (and update local cache)
+ */
+export async function saveNewsArticle(article: NewsArticle): Promise<boolean> {
+  // Mark as no longer a local draft since it's uploaded to Cloud
+  const cloudArticle: NewsArticle = {
+    ...article,
+    isLocalDraft: false,
+  };
+
+  // Update local cache first
+  try {
+    const articles = await loadNewsArticles();
+    const existingIndex = articles.findIndex((a) => a.id === cloudArticle.id);
+    let updated: NewsArticle[];
+    if (existingIndex >= 0) {
+      updated = [...articles];
+      updated[existingIndex] = cloudArticle;
+    } else {
+      updated = [cloudArticle, ...articles];
     }
     localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(updated));
     await setOfflineItem('news_articles', updated);
@@ -359,8 +392,8 @@ export async function saveNewsArticle(article: NewsArticle): Promise<boolean> {
   // Firestore sync - ensure strictly NO base64 images (only URL links)
   if (db && (typeof navigator === 'undefined' || navigator.onLine)) {
     try {
-      const cleanedArticle = sanitizeNoBase64(article);
-      const articleDoc = doc(db, 'news_articles', article.id);
+      const cleanedArticle = sanitizeNoBase64(cloudArticle);
+      const articleDoc = doc(db, 'news_articles', cloudArticle.id);
       await withTimeout(setDoc(articleDoc, cleanedArticle, { merge: true }), 3500);
       return true;
     } catch (err) {
@@ -404,7 +437,7 @@ export async function loadNewsArticles(): Promise<NewsArticle[]> {
   try {
     const cached = await getOfflineItem<NewsArticle[]>('news_articles');
     if (cached !== null && Array.isArray(cached)) {
-      // Background revalidate from Firestore if online
+      // Background revalidate from Firestore if online, preserving any local drafts
       if (db && typeof navigator !== 'undefined' && navigator.onLine) {
         const colRef = collection(db, 'news_articles');
         withTimeout(getDocs(colRef), 3000)
@@ -414,9 +447,16 @@ export async function loadNewsArticles(): Promise<NewsArticle[]> {
               cloudArticles.push(d.data() as NewsArticle);
             });
             if (cloudArticles.length > 0) {
-              cloudArticles.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
-              setOfflineItem('news_articles', cloudArticles);
-              localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(cloudArticles));
+              // Preserve any articles that are marked as local drafts on this device
+              const localDrafts = cached.filter((a) => a.isLocalDraft);
+              const cloudIds = new Set(cloudArticles.map((c) => c.id));
+              const merged = [
+                ...localDrafts.filter((ld) => !cloudIds.has(ld.id)),
+                ...cloudArticles,
+              ];
+              merged.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+              setOfflineItem('news_articles', merged);
+              localStorage.setItem(LOCAL_STORAGE_NEWS_KEY, JSON.stringify(merged));
             }
           })
           .catch(() => {});

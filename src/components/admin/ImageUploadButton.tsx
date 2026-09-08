@@ -8,8 +8,8 @@ import {
   HardDrive,
   CloudUpload,
   ExternalLink,
-  LogOut,
   AlertTriangle,
+  Zap,
 } from 'lucide-react';
 import {
   compressAndResizeImage,
@@ -18,13 +18,9 @@ import {
   CompressionOptions,
 } from '../../lib/imageOptimizer';
 import {
-  uploadImageToDrive,
-  signInWithGoogleDrive,
-  getDriveAccessToken,
-  signOutGoogleDrive,
-  initDriveAuth,
-} from '../../lib/googleDrive';
-import { User } from 'firebase/auth';
+  uploadFileViaAppsScript,
+  getStoredAppsScriptConfig,
+} from '../../lib/googleAppsScript';
 
 interface ImageUploadButtonProps {
   label: string;
@@ -44,34 +40,29 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
   aspectRatio = 'wide',
   allowDriveConverter = true,
 }) => {
-  const fileInputDriveRef = useRef<HTMLInputElement | null>(null);
-  const fileInputLocalRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [uploadMode, setUploadMode] = useState<'drive' | 'local'>('local');
+  // Check stored Google Apps Script configuration
+  const [gasConfig, setGasConfig] = useState(getStoredAppsScriptConfig());
+  const isGasAvailable = Boolean(gasConfig?.webAppUrl && gasConfig?.webAppUrl.trim().length > 15 && gasConfig.enabled !== false);
+
+  // Default to Google Drive (Apps Script) if configured, else local compression
+  const [uploadMode, setUploadMode] = useState<'gas' | 'local'>('gas');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [uploadError, setUploadError] = useState<string | null>(null);
-
-  // Google Drive user & token state
-  const [driveUser, setDriveUser] = useState<User | null>(null);
-  const [isLoggedInDrive, setIsLoggedInDrive] = useState<boolean>(false);
 
   const [isDragging, setIsDragging] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = initDriveAuth(
-      (user, token) => {
-        setDriveUser(user);
-        setIsLoggedInDrive(Boolean(token));
-      },
-      () => {
-        setDriveUser(null);
-        setIsLoggedInDrive(Boolean(getDriveAccessToken()));
-      }
-    );
-    return () => unsubscribe();
+    // Refresh configuration from storage
+    const current = getStoredAppsScriptConfig();
+    setGasConfig(current);
+    if (!current?.webAppUrl) {
+      setUploadMode('local');
+    }
   }, []);
 
   const getPresetOptions = (): CompressionOptions => {
@@ -91,9 +82,50 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
   };
 
   /**
-   * Handle Direct Upload to Google Drive
+   * Handle Upload via Google Apps Script (NO POPUP, NO OAUTH LOGIN NEEDED)
    */
-  const handleDriveUpload = async (file: File) => {
+  const handleGasUpload = async (file: File) => {
+    if (!file || !file.type.startsWith('image/')) {
+      setUploadError('Pilih file gambar yang valid.');
+      return;
+    }
+
+    const currentConfig = getStoredAppsScriptConfig();
+    if (!currentConfig || !currentConfig.webAppUrl) {
+      setUploadError(
+        'Google Apps Script belum dikonfigurasi. Silakan buka tab "Google Drive & Sheets" di menu Admin untuk memasukkan URL Web App Anda.'
+      );
+      return;
+    }
+
+    setIsProcessing(true);
+    setUploadError(null);
+    setSuccessInfo(null);
+    setProcessingStatus('Mengunggah ke Google Drive via Apps Script...');
+
+    try {
+      const result = await uploadFileViaAppsScript(file, {
+        webAppUrl: currentConfig.webAppUrl,
+        folderId: currentConfig.folderId,
+        spreadsheetId: currentConfig.spreadsheetId,
+        onProgress: (status) => setProcessingStatus(status),
+      });
+
+      onChange(result.fileUrl);
+      setSuccessInfo(`Tersimpan di Google Drive (${formatFileSize(result.size)}) - Bebas Login`);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setUploadError(`Gagal ke Google Drive via Apps Script: ${errorMsg}`);
+    } finally {
+      setIsProcessing(false);
+      setProcessingStatus('');
+    }
+  };
+
+  /**
+   * Handle Fast Local WebP Compression
+   */
+  const handleLocalCompression = async (file: File) => {
     if (!file || !file.type.startsWith('image/')) {
       setUploadError('Pilih file gambar yang valid.');
       return;
@@ -102,99 +134,47 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
     setIsProcessing(true);
     setUploadError(null);
     setSuccessInfo(null);
-    setProcessingStatus('Menghubungkan ke Google Drive...');
+    setProcessingStatus('Mengompresi gambar ke WebP...');
 
     try {
-      const result = await uploadImageToDrive(file, file.name, (status) => {
-        setProcessingStatus(status);
-      });
-
-      onChange(result.cdnUrl);
-      setSuccessInfo(`Tersimpan di Google Drive (${formatFileSize(result.size)})`);
-      setIsLoggedInDrive(true);
+      const compressed = await compressAndResizeImage(file, getPresetOptions());
+      onChange(compressed.dataUrl);
+      setSuccessInfo(`Kompresi selesai (${formatFileSize(compressed.compressedSize)})`);
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      setUploadError(
-        errorMsg.includes('popup')
-          ? 'Popup login terhalang browser. Klik tombol Login Akun Google atau gunakan Kompresi Lokal.'
-          : `Gagal ke Google Drive: ${errorMsg}`
-      );
+      setUploadError(`Gagal kompresi: ${errorMsg}`);
     } finally {
       setIsProcessing(false);
       setProcessingStatus('');
     }
   };
 
-  /**
-   * Handle Local File Selection
-   * Enforces user requirement: NO binary or base64 images uploaded to Firebase, ONLY link URLs.
-   * Uploads file to Google Drive to obtain a public CDN link.
-   */
-  const handleLocalFile = async (file: File) => {
-    if (!file || !file.type.startsWith('image/')) {
-      setUploadError('Pilih file gambar yang valid.');
-      return;
-    }
-
-    // Automatically route to Google Drive to obtain a lightweight CDN URL link
-    try {
-      await handleDriveUpload(file);
-    } catch {
-      setUploadError('Firebase hanya menyimpan tautan (link URL) gambar. Silakan login ke Google Drive untuk unggah otomatis, atau tempel tautan URL gambar.');
-      setShowUrlInput(true);
-    }
-  };
-
-  const handleDriveLogin = async () => {
-    try {
-      setIsProcessing(true);
-      setUploadError(null);
-      setProcessingStatus('Membuka login Google...');
-      const authData = await signInWithGoogleDrive();
-      if (authData) {
-        setDriveUser(authData.user);
-        setIsLoggedInDrive(true);
-        setSuccessInfo(`Google Drive terhubung: ${authData.user.email}`);
+  const handleProcessFile = (file: File) => {
+    if (uploadMode === 'gas') {
+      if (isGasAvailable) {
+        handleGasUpload(file);
+      } else {
+        // If user tries gas upload but it's not set up, prompt and fallback
+        setUploadError(
+          'Google Apps Script belum dikonfigurasi. Atur di tab "Google Drive & Sheets", atau gunakan Kompresi Cepat Lokal.'
+        );
       }
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      setUploadError('Gagal login Google: ' + errorMsg);
-    } finally {
-      setIsProcessing(false);
-      setProcessingStatus('');
+    } else {
+      handleLocalCompression(file);
     }
   };
 
-  const handleDriveLogout = async () => {
-    await signOutGoogleDrive();
-    setDriveUser(null);
-    setIsLoggedInDrive(false);
-    setSuccessInfo(null);
-  };
-
-  const onDriveFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleDriveUpload(file);
-    if (fileInputDriveRef.current) fileInputDriveRef.current.value = '';
-  };
-
-  const onLocalFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleLocalFile(file);
-    if (fileInputLocalRef.current) fileInputLocalRef.current.value = '';
+    if (file) handleProcessFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) {
-      if (uploadMode === 'drive') {
-        handleDriveUpload(file);
-      } else {
-        handleLocalFile(file);
-      }
-    }
+    if (file) handleProcessFile(file);
   };
 
   const handleUrlChange = (newText: string) => {
@@ -232,7 +212,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
             className="text-[11px] text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
           >
             <HardDrive className="w-3 h-3" />
-            <span>Buka Google Drive ↗</span>
+            <span>Google Drive ↗</span>
           </a>
           <button
             type="button"
@@ -265,7 +245,7 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
           <div className={`relative overflow-hidden border border-slate-200 bg-slate-100 shrink-0 ${getPreviewClasses()}`}>
             <img src={value} alt="Preview" className="w-full h-full object-cover" />
             <span className="absolute bottom-1 right-1 text-white text-[9px] px-1.5 py-0.5 rounded font-bold bg-slate-900/80">
-              {isGoogleDriveUrl ? 'Google Drive' : value.startsWith('data:') ? 'Lokal' : 'URL'}
+              {isGoogleDriveUrl ? 'Google Drive' : value.startsWith('data:') ? 'WebP Lokal' : 'URL'}
             </span>
           </div>
         )}
@@ -276,16 +256,20 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
           <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg border border-slate-200">
             <button
               type="button"
-              onClick={() => setUploadMode('drive')}
+              onClick={() => setUploadMode('gas')}
               className={`flex-1 py-1 px-2.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                uploadMode === 'drive'
+                uploadMode === 'gas'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <HardDrive className="w-3 h-3" />
-              <span>Google Drive</span>
+              <Zap className="w-3 h-3 text-amber-300" />
+              <span>Drive (Apps Script)</span>
+              {isGasAvailable && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Apps Script Siap" />
+              )}
             </button>
+
             <button
               type="button"
               onClick={() => setUploadMode('local')}
@@ -296,24 +280,17 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
               }`}
             >
               <Sparkles className="w-3 h-3 text-amber-500" />
-              <span>Kompresi Cepat</span>
+              <span>Kompresi WebP</span>
             </button>
           </div>
 
-          {/* Hidden Inputs */}
+          {/* Hidden Input */}
           <input
-            ref={fileInputDriveRef}
+            ref={fileInputRef}
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={onDriveFileInputChange}
-          />
-          <input
-            ref={fileInputLocalRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={onLocalFileInputChange}
+            onChange={onFileInputChange}
           />
 
           {/* Upload Dropzone */}
@@ -326,16 +303,12 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
             onDrop={handleDrop}
             onClick={() => {
               if (isProcessing) return;
-              if (uploadMode === 'drive') {
-                fileInputDriveRef.current?.click();
-              } else {
-                fileInputLocalRef.current?.click();
-              }
+              fileInputRef.current?.click();
             }}
             className={`border-2 border-dashed rounded-xl p-3.5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5 ${
               isDragging
                 ? 'border-blue-500 bg-blue-50'
-                : uploadMode === 'drive'
+                : uploadMode === 'gas'
                 ? 'border-blue-200 bg-blue-50/40 hover:bg-blue-50'
                 : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
             }`}
@@ -347,48 +320,40 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
               </div>
             ) : (
               <div className="flex items-center gap-2 text-xs">
-                {uploadMode === 'drive' ? (
+                {uploadMode === 'gas' ? (
                   <CloudUpload className="w-4 h-4 text-blue-600" />
                 ) : (
                   <Upload className="w-4 h-4 text-slate-600" />
                 )}
                 <span className="font-bold text-slate-800">
-                  {uploadMode === 'drive' ? 'Pilih Gambar ke Google Drive' : 'Pilih Gambar untuk Kompresi Cepat'}
+                  {uploadMode === 'gas'
+                    ? 'Pilih Gambar ke Google Drive (Tanpa Login)'
+                    : 'Pilih Gambar untuk Kompresi Cepat'}
                 </span>
                 <span className="text-slate-400">atau seret ke sini</span>
               </div>
             )}
           </div>
 
-          {/* Account Status / Login */}
-          {uploadMode === 'drive' && (
+          {/* Apps Script Status Banner */}
+          {uploadMode === 'gas' && (
             <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px]">
               <div className="flex items-center gap-1.5 truncate">
-                <div className={`w-2 h-2 rounded-full shrink-0 ${isLoggedInDrive ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                <div
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    isGasAvailable ? 'bg-emerald-500' : 'bg-amber-400'
+                  }`}
+                />
                 <span className="text-slate-600 truncate">
-                  {isLoggedInDrive ? driveUser?.email || 'Akun Google Terhubung' : 'Perlu login Google untuk unggah'}
+                  {isGasAvailable
+                    ? 'Apps Script Terhubung: Unggah langsung ke Google Drive'
+                    : 'Apps Script belum diatur (Buka tab "Google Drive & Sheets")'}
                 </span>
               </div>
 
-              {isLoggedInDrive ? (
-                <button
-                  type="button"
-                  onClick={handleDriveLogout}
-                  className="text-slate-400 hover:text-red-600 flex items-center gap-1 font-semibold cursor-pointer shrink-0 ml-2"
-                >
-                  <LogOut className="w-3 h-3" />
-                  <span>Keluar</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleDriveLogin}
-                  className="text-blue-600 hover:text-blue-700 font-bold flex items-center gap-1 cursor-pointer shrink-0 ml-2"
-                >
-                  <HardDrive className="w-3 h-3" />
-                  <span>Login Google</span>
-                </button>
-              )}
+              <span className="text-[10px] font-bold text-blue-600 shrink-0 ml-2">
+                {isGasAvailable ? 'Bebas Pop-up' : 'Perlu Setup'}
+              </span>
             </div>
           )}
 
@@ -403,21 +368,20 @@ export const ImageUploadButton: React.FC<ImageUploadButtonProps> = ({
                     type="button"
                     onClick={() => {
                       setUploadMode('local');
-                      fileInputLocalRef.current?.click();
+                      fileInputRef.current?.click();
                     }}
                     className="underline font-bold text-red-800 cursor-pointer"
                   >
-                    Gunakan Kompresi Cepat
+                    Gunakan Kompresi Cepat WebP
                   </button>
                   <span>•</span>
-                  <a
-                    href="https://drive.google.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline font-bold text-red-800"
+                  <button
+                    type="button"
+                    onClick={() => setShowUrlInput(true)}
+                    className="underline font-bold text-red-800 cursor-pointer"
                   >
-                    Buka Drive ↗
-                  </a>
+                    Tempel Link URL
+                  </button>
                 </div>
               </div>
             </div>

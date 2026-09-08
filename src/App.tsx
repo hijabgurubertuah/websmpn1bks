@@ -12,6 +12,7 @@ import {
   saveLocalDraftConfig,
   loadNewsArticles,
   saveNewsArticle,
+  saveNewsArticleLocally,
   deleteNewsArticle,
 } from './lib/firebase';
 import { TopBar } from './components/public/TopBar';
@@ -88,9 +89,16 @@ export default function App() {
     saveLocalDraftConfig(newConfig);
   };
 
-  // Handle article save from Admin
+  // Handle article save to Cloud from Admin
   const handleSaveArticle = async (article: NewsArticle) => {
     await saveNewsArticle(article);
+    const updated = await loadNewsArticles();
+    setArticles(updated);
+  };
+
+  // Handle article save to Local Draft only from Admin (0 Firebase writes)
+  const handleSaveArticleLocally = async (article: NewsArticle) => {
+    await saveNewsArticleLocally(article);
     const updated = await loadNewsArticles();
     setArticles(updated);
   };
@@ -127,6 +135,7 @@ export default function App() {
         articles={articles}
         onChangeConfig={handleConfigChange}
         onSaveArticle={handleSaveArticle}
+        onSaveArticleLocally={handleSaveArticleLocally}
         onDeleteArticle={handleDeleteArticle}
         onCloseAdmin={() => setIsAdminMode(false)}
         onLogout={handleLogoutAdmin}

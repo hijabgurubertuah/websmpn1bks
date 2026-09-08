@@ -130,6 +130,17 @@ export interface PPDBConfig {
   brochureUrl?: string;
 }
 
+export interface GoogleAppsScriptConfig {
+  enabled: boolean;
+  webAppUrl: string;
+  folderId?: string;
+  spreadsheetId?: string;
+  autoCreateFolder?: boolean;
+  lastTestedAt?: string;
+  testStatus?: 'success' | 'error' | 'untested';
+  testMessage?: string;
+}
+
 export interface SchoolConfig {
   adminPassword?: string;
   identity: SchoolIdentity;
@@ -143,6 +154,7 @@ export interface SchoolConfig {
   extracurriculars: ExtracurricularItem[];
   agendas: AgendaItem[];
   footer: FooterConfig;
+  googleAppsScript?: GoogleAppsScriptConfig;
 }
 
 export interface NewsArticle {
@@ -165,4 +177,5 @@ export interface NewsArticle {
   };
   embedUrl?: string;
   embedTitle?: string;
+  isLocalDraft?: boolean;
 }

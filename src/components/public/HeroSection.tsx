@@ -1,6 +1,6 @@
 import React from 'react';
 import { SchoolConfig } from '../../types';
-import { Award, GraduationCap, Users, BookOpen, ChevronRight, PlayCircle, Sparkles } from 'lucide-react';
+import { Award, GraduationCap, Users, BookOpen, ChevronRight, PlayCircle } from 'lucide-react';
 
 interface HeroSectionProps {
   config: SchoolConfig;
@@ -47,15 +47,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ config }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 pb-16 sm:pb-28">
-        <div className="max-w-3xl space-y-6">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-14 pb-14 sm:pb-24">
+        <div className="max-w-3xl space-y-5">
           
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-900/60 border border-blue-500/40 text-blue-200 text-xs sm:text-sm font-semibold tracking-wide backdrop-blur-sm shadow-inner">
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>NPSN: {identity.npsn} • Sekolah Standar Nasional</span>
-          </div>
-
           {/* Main Title */}
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
             {header.heroTitle}

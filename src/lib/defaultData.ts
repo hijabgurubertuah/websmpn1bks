@@ -249,6 +249,14 @@ export const DEFAULT_SCHOOL_CONFIG: SchoolConfig = {
     },
     copyright: '© 2026 SMP Negeri 1 Bengkalis (NPSN: 10495146). Hak Cipta Dilindungi Undang-Undang.',
   },
+  googleAppsScript: {
+    enabled: true,
+    webAppUrl: '',
+    folderId: '',
+    spreadsheetId: '',
+    autoCreateFolder: true,
+    testStatus: 'untested',
+  },
 };
 
 export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [

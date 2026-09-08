@@ -22,6 +22,7 @@ import {
   Calendar,
   Building2,
   GraduationCap,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { AdminHeaderTab } from './AdminHeaderTab';
 import { AdminMenusTab } from './AdminMenusTab';
@@ -34,6 +35,7 @@ import { AdminPrincipalTab } from './AdminPrincipalTab';
 import { AdminEmbedsTab } from './AdminEmbedsTab';
 import { AdminFooterTab } from './AdminFooterTab';
 import { AdminSyncTab } from './AdminSyncTab';
+import { AdminGoogleAppsScriptTab } from './AdminGoogleAppsScriptTab';
 import { saveSchoolTabConfig } from '../../lib/firebase';
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
 
@@ -42,6 +44,7 @@ interface AdminDashboardProps {
   articles: NewsArticle[];
   onChangeConfig: (newConfig: SchoolConfig) => void;
   onSaveArticle: (article: NewsArticle) => Promise<void>;
+  onSaveArticleLocally?: (article: NewsArticle) => Promise<void>;
   onDeleteArticle: (articleId: string) => Promise<void>;
   onCloseAdmin: () => void;
   onLogout: () => void;
@@ -59,6 +62,7 @@ export type AdminTab =
   | 'principal'
   | 'embeds'
   | 'footer'
+  | 'appscript'
   | 'sync';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -66,6 +70,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   articles,
   onChangeConfig,
   onSaveArticle,
+  onSaveArticleLocally,
   onDeleteArticle,
   onCloseAdmin,
   onLogout,
@@ -81,6 +86,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Lock body scroll when mobile sidebar drawer is open to prevent background scrolling
   useBodyScrollLock(isMobileSidebarOpen);
 
+  const localDraftsCount = articles.filter((a) => Boolean(a.isLocalDraft)).length;
+
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: 'header', label: 'Header & Identitas', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'menus', label: 'Menu & Dropdown', icon: <Layers className="w-4 h-4" /> },
@@ -92,6 +99,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'principal', label: 'Sambutan Kepsek', icon: <Award className="w-4 h-4" /> },
     { id: 'embeds', label: 'Embed Video & Peta', icon: <Video className="w-4 h-4" /> },
     { id: 'footer', label: 'Footer & Kontak', icon: <Share2 className="w-4 h-4" /> },
+    { id: 'appscript', label: 'Google Drive & Sheets', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { id: 'sync', label: 'Firebase & Backup', icon: <Database className="w-4 h-4" /> },
   ];
 
@@ -124,7 +132,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const unsavedCount = Object.values(unsavedTabs).filter(Boolean).length;
+  const unsavedCount =
+    Object.values(unsavedTabs).filter(Boolean).length + (localDraftsCount > 0 ? 1 : 0);
 
   return (
     <div id="admin-dashboard-container" className="min-h-screen bg-slate-100 flex flex-col text-slate-800">
@@ -300,7 +309,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
-            const isUnsaved = Boolean(unsavedTabs[tab.id]);
+            const isUnsaved = tab.id === 'posts' ? localDraftsCount > 0 : Boolean(unsavedTabs[tab.id]);
             return (
               <button
                 key={tab.id}
@@ -327,11 +336,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 ml-2">
-                  {tab.id !== 'sync' && tab.id !== 'posts' && (
+                  {tab.id !== 'sync' && (
                     isUnsaved ? (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        Lokal
+                        {tab.id === 'posts' ? `${localDraftsCount} Draf` : 'Lokal'}
                       </span>
                     ) : (
                       <span className="text-[10px] font-medium text-emerald-400 flex items-center gap-0.5">
@@ -416,7 +425,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
-              const isUnsaved = Boolean(unsavedTabs[tab.id]);
+              const isUnsaved = tab.id === 'posts' ? localDraftsCount > 0 : Boolean(unsavedTabs[tab.id]);
               return (
                 <button
                   key={tab.id}
@@ -436,7 +445,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    {tab.id !== 'sync' && tab.id !== 'posts' && (
+                    {tab.id !== 'sync' && (
                       isUnsaved ? (
                         <span
                           className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
@@ -447,7 +456,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           title="Hanya tersimpan di lokal (belum disinkronkan ke Firebase)"
                         >
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
-                          Lokal
+                          {tab.id === 'posts' ? `${localDraftsCount} Draf` : 'Lokal'}
                         </span>
                       ) : (
                         <span
@@ -490,31 +499,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {/* Main Content Workspace */}
         <main className="flex-1 min-w-0 w-full">
-          
-          {/* Active Tab Header Badge for Mobile/Tablet */}
-          <div className="md:hidden mb-4 p-3 bg-white rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
-                {tabs.find((t) => t.id === activeTab)?.icon}
-              </span>
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                  Tab Aktif
-                </span>
-                <span className="text-xs font-bold text-slate-900">
-                  {tabs.find((t) => t.id === activeTab)?.label}
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors"
-            >
-              Ganti Tab →
-            </button>
-          </div>
 
           {/* Dedicated Tab Header with Status & Save Button for Current Tab */}
           {activeTab !== 'sync' && activeTab !== 'posts' && (
@@ -584,6 +568,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <AdminPostsTab
               articles={articles}
               onSaveArticle={onSaveArticle}
+              onSaveArticleLocally={onSaveArticleLocally}
               onDeleteArticle={onDeleteArticle}
             />
           )}
@@ -610,6 +595,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {activeTab === 'footer' && (
             <AdminFooterTab config={config} onChange={handleConfigUpdate} />
+          )}
+
+          {activeTab === 'appscript' && (
+            <AdminGoogleAppsScriptTab config={config} onChange={handleConfigUpdate} />
           )}
 
           {activeTab === 'sync' && (
