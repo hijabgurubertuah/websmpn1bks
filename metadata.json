@@ -1,6 +1,6 @@
 {
-  "name": "Portal Sekolah & Admin CMS",
-  "description": "Website profil sekolah profesional dengan sistem manajemen konten (CMS) admin terintegrasi untuk berita, navigasi, dan tata letak.",
+  "name": "SMP Negeri 1 Bengkalis - Portal Resmi & CMS Sekolah",
+  "description": "Website resmi SMP Negeri 1 Bengkalis (NPSN: 10495146), Jl. Pertanian, Bengkalis Kota. Portal informasi profil, berita, prestasi, dan PPDB online.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
